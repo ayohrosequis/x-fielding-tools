@@ -1,0 +1,737 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Weight QC Tool</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #f5f6f8; --surface: #ffffff; --surface-2: #f0f1f4; --surface-3: #e8eaee;
+  --border: #dcdfe6; --border-light: #e8eaee;
+  --text: #1a1d26; --text-dim: #5c6070; --text-muted: #8b8fa0;
+  --accent: #4a6cf7; --accent-light: #eef1fe; --accent-border: #c5d0fb;
+  --pass: #16a76a; --pass-bg: #edfaf3; --pass-border: #b8e6d0;
+  --warn: #d89614; --warn-bg: #fef8eb; --warn-border: #f0dca0;
+  --fail: #dc3545; --fail-bg: #fdf0f1; --fail-border: #f0b8bd;
+  --radius: 10px; --radius-sm: 6px;
+  --shadow-sm: 0 1px 3px rgba(0,0,0,.06);
+  --shadow: 0 2px 8px rgba(0,0,0,.07);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;line-height:1.5}
+.app{max-width:1320px;margin:0 auto;padding:36px 24px}
+header{margin-bottom:28px}
+header h1{font-size:24px;font-weight:700;letter-spacing:-.4px;color:var(--text)}
+header p{color:var(--text-dim);font-size:13px;margin-top:2px}
+
+/* Upload */
+.upload-zone{background:var(--surface);border:1.5px dashed var(--border);border-radius:var(--radius);padding:28px;text-align:center;cursor:pointer;transition:all .2s;margin-bottom:20px;box-shadow:var(--shadow-sm)}
+.upload-zone:hover{border-color:var(--accent);background:var(--accent-light)}
+.upload-zone.loaded{border-color:var(--pass-border);border-style:solid;background:var(--pass-bg)}
+.upload-zone input{display:none}
+.upload-zone .icon{font-size:22px;margin-bottom:6px;display:block}
+.upload-zone .label{font-weight:600;font-size:13px}
+.upload-zone .sublabel{font-size:11px;color:var(--text-dim)}
+.upload-zone .filename{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--pass);margin-top:5px}
+
+/* Config bar */
+.config-bar{display:flex;gap:12px;align-items:center;margin-bottom:16px;flex-wrap:wrap}
+.config-bar label{font-size:12px;font-weight:600;color:var(--text-dim)}
+.config-bar select{font-family:'JetBrains Mono',monospace;font-size:11px;padding:7px 10px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text)}
+.csv-info{font-size:11px;color:var(--text-muted)}
+
+/* Deff bar */
+.deff-bar{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px;box-shadow:var(--shadow-sm)}
+.ds .lbl{font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px}
+.ds .val{font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:600;color:var(--text)}
+
+/* Buttons */
+.btn{font-family:'DM Sans',sans-serif;font-weight:600;font-size:12px;padding:8px 16px;border-radius:var(--radius-sm);border:none;cursor:pointer;transition:all .15s}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-primary:hover{filter:brightness(1.08)}
+.btn-primary:disabled{opacity:.4;cursor:not-allowed}
+.btn-secondary{background:var(--surface);color:var(--text-dim);border:1px solid var(--border)}
+.btn-secondary:hover{background:var(--surface-2);color:var(--text)}
+.btn-accent{background:var(--accent-light);color:var(--accent);border:1px solid var(--accent-border)}
+.btn-accent:hover{filter:brightness(.97)}
+.btn-sm{font-size:11px;padding:5px 10px}
+.btn-danger{background:var(--fail-bg);color:var(--fail);border:1px solid var(--fail-border)}
+.btn-link{background:none;border:none;color:var(--accent);cursor:pointer;font-family:'DM Sans',sans-serif;font-size:11px;padding:3px 0;font-weight:500}
+.btn-link:hover{text-decoration:underline}
+
+/* Controls row */
+.controls-row{display:flex;gap:10px;align-items:center;margin-bottom:20px;flex-wrap:wrap}
+.threshold-ctl{display:flex;align-items:center;gap:6px;margin-left:auto;font-size:12px;color:var(--text-dim)}
+.threshold-ctl input{width:50px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-family:'JetBrains Mono',monospace;font-size:12px;padding:5px 8px;text-align:center}
+
+/* ── Searchable Select ── */
+.ss-wrap{position:relative;min-width:220px;flex:1}
+.ss-display{font-family:'JetBrains Mono',monospace;font-size:11px;padding:7px 30px 7px 10px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;user-select:none;position:relative}
+.ss-display:hover{border-color:var(--accent)}
+.ss-display::after{content:'▾';position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--text-muted);font-size:10px}
+.ss-display.placeholder{color:var(--text-muted)}
+.ss-dropdown{display:none;position:absolute;top:100%;left:0;right:0;z-index:50;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);box-shadow:var(--shadow);margin-top:2px;max-height:260px;overflow:hidden;flex-direction:column}
+.ss-dropdown.open{display:flex}
+.ss-search{border:none;border-bottom:1px solid var(--border);padding:8px 10px;font-family:'DM Sans',sans-serif;font-size:12px;color:var(--text);background:var(--surface-2);outline:none;width:100%}
+.ss-search::placeholder{color:var(--text-muted)}
+.ss-list{overflow-y:auto;max-height:220px}
+.ss-opt{padding:6px 10px;font-family:'JetBrains Mono',monospace;font-size:11px;cursor:pointer;transition:background .1s;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ss-opt:hover{background:var(--accent-light)}
+.ss-opt.selected{background:var(--accent-light);color:var(--accent);font-weight:600}
+.ss-opt.empty{color:var(--text-muted);font-style:italic;cursor:default}
+
+/* Scope cards */
+.scope-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:14px;box-shadow:var(--shadow-sm);overflow:hidden}
+.scope-card-header{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:var(--surface-2);cursor:pointer;user-select:none}
+.scope-card-header:hover{background:var(--surface-3)}
+.scope-card-title{font-size:13px;font-weight:700;color:var(--text)}
+.scope-card-meta{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text-muted);margin-left:10px}
+.scope-card-body{padding:16px}
+.scope-card-body.collapsed{display:none}
+
+/* Form elements */
+.sf-label{font-size:10px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;display:block}
+.sf-section{margin-bottom:16px}
+.sf-input{font-family:'DM Sans',sans-serif;font-size:12px;padding:7px 10px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);outline:none;width:100%}
+.sf-input:focus{border-color:var(--accent)}
+
+.filter-row{display:flex;gap:8px;align-items:center;margin-bottom:6px}
+.x-btn{background:none;border:none;color:var(--fail);cursor:pointer;font-size:12px;opacity:.4;padding:4px;flex-shrink:0}
+.x-btn:hover{opacity:1}
+
+/* Variable group */
+.vg-card{background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px;margin-bottom:10px}
+.vg-header{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.target-row{display:grid;grid-template-columns:1fr 100px 28px;gap:6px;align-items:center;margin-bottom:4px}
+.target-row .val-label{font-size:12px;padding:6px 10px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.target-row input{font-family:'JetBrains Mono',monospace;font-size:11px;padding:6px 8px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);text-align:right;outline:none}
+.target-row input:focus{border-color:var(--accent)}
+.target-sum{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text-muted);text-align:right;padding:4px 0}
+.target-sum.bad{color:var(--warn)}
+
+.load-vals-msg{font-size:11px;color:var(--text-muted);padding:8px 0;font-style:italic}
+
+/* ── Results ── */
+.results-layout{display:flex;gap:20px}
+.scope-nav{width:210px;flex-shrink:0;position:sticky;top:20px;align-self:flex-start;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow-sm)}
+.scope-nav-title{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--text-muted);padding:12px 14px 6px}
+.scope-nav-item{display:flex;align-items:center;justify-content:space-between;padding:9px 14px;font-size:12px;cursor:pointer;transition:all .1s;border-left:3px solid transparent}
+.scope-nav-item:hover{background:var(--surface-2)}
+.scope-nav-item.active{background:var(--accent-light);border-left-color:var(--accent);font-weight:600}
+.scope-nav-item .nav-badge{font-family:'JetBrains Mono',monospace;font-size:9px;padding:1px 7px;border-radius:99px;font-weight:500}
+.scope-nav-item .nav-label{color:var(--text-dim)}
+.scope-nav-item.active .nav-label{color:var(--text)}
+.results-main{flex:1;min-width:0}
+
+.summary-bar{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:24px}
+.summary-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 18px;box-shadow:var(--shadow-sm)}
+.summary-card .num{font-size:26px;font-weight:700;font-family:'JetBrains Mono',monospace;letter-spacing:-1px}
+.summary-card .desc{font-size:11px;color:var(--text-dim);margin-top:1px}
+.summary-card.pass .num{color:var(--pass)}
+.summary-card.warn .num{color:var(--warn)}
+.summary-card.fail .num{color:var(--fail)}
+
+.filter-tabs{display:flex;gap:2px;margin-bottom:16px;background:var(--surface-2);border-radius:var(--radius-sm);padding:3px;width:fit-content}
+.filter-tab{font-family:'DM Sans',sans-serif;font-size:11px;font-weight:500;padding:5px 12px;border:none;background:transparent;color:var(--text-dim);border-radius:4px;cursor:pointer;transition:all .15s}
+.filter-tab.active{background:var(--surface);color:var(--text);box-shadow:var(--shadow-sm)}
+.filter-tab .count{font-family:'JetBrains Mono',monospace;font-size:9px;margin-left:3px;opacity:.6}
+
+.scope-section{display:none}
+.scope-section.active{display:block}
+.scope-hdr{font-size:15px;font-weight:700;padding:16px 0 10px;border-bottom:2px solid var(--border);margin-bottom:16px;display:flex;align-items:baseline;gap:10px}
+.scope-hdr .info{font-size:11px;font-weight:400;color:var(--text-muted);font-family:'JetBrains Mono',monospace}
+
+.section{margin-bottom:16px}
+.section-header{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius) var(--radius) 0 0;cursor:pointer;user-select:none}
+.section-header:hover{background:var(--surface-2)}
+.section-title{font-size:13px;font-weight:600}
+.section-badge{font-family:'JetBrains Mono',monospace;font-size:10px;padding:2px 9px;border-radius:99px;font-weight:500}
+.badge-pass{background:var(--pass-bg);color:var(--pass);border:1px solid var(--pass-border)}
+.badge-warn{background:var(--warn-bg);color:var(--warn);border:1px solid var(--warn-border)}
+.badge-fail{background:var(--fail-bg);color:var(--fail);border:1px solid var(--fail-border)}
+
+.section-table{width:100%;border-collapse:collapse;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);overflow:hidden}
+.section-table th{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);text-align:left;padding:8px 14px;background:var(--surface-2);border-bottom:1px solid var(--border)}
+.section-table td{font-size:12px;padding:8px 14px;border-bottom:1px solid var(--border);background:var(--surface)}
+.section-table tr:last-child td{border-bottom:none}
+.section-table td.mono{font-family:'JetBrains Mono',monospace;font-size:11px}
+.section-table .vc{text-align:right}
+.row-pass td{color:var(--text-dim)}
+.row-warn td:first-child{border-left:3px solid var(--warn)}
+.row-fail td:first-child{border-left:3px solid var(--fail)}
+.diff-badge{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:10px;padding:2px 7px;border-radius:4px;font-weight:500}
+.diff-pass{color:var(--pass);background:var(--pass-bg)}
+.diff-warn{color:var(--warn);background:var(--warn-bg)}
+.diff-fail{color:var(--fail);background:var(--fail-bg)}
+.section-sum-row td{font-weight:600;background:var(--surface-2)!important;border-top:2px solid var(--border)}
+.section-body{display:block}
+.section-body.collapsed{display:none}
+.chevron{transition:transform .2s;color:var(--text-muted);font-size:11px}
+.chevron.collapsed{transform:rotate(-90deg)}
+
+@media(max-width:900px){
+  .results-layout{flex-direction:column}
+  .scope-nav{width:100%;position:static}
+  .summary-bar,.deff-bar{grid-template-columns:repeat(2,1fr)}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1>Weight QC Dashboard</h1>
+    <p>Upload survey data, select your variables and targets, and validate weighted proportions.</p>
+  </header>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px">
+    <div class="upload-zone" id="dataZone" onclick="document.getElementById('dataInput').click()">
+      <input type="file" id="dataInput" accept=".csv">
+      <span class="icon">📊</span>
+      <div class="label">Survey Data (CSV)</div>
+      <div class="sublabel">CSV file with weights and classification variables</div>
+      <div class="filename" id="dataFilename"></div>
+    </div>
+    <div class="upload-zone" id="targetsZone" onclick="document.getElementById('targetsInput').click()">
+      <input type="file" id="targetsInput" accept=".csv">
+      <span class="icon">🎯</span>
+      <div class="label">Weighting Targets (CSV)</div>
+      <div class="sublabel">Optional — or use "+ Add Scope" to build manually</div>
+      <div class="filename" id="targetsFilename"></div>
+    </div>
+  </div>
+
+  <div id="configArea" style="display:none">
+    <div class="config-bar">
+      <label>Weight column:</label>
+      <select id="weightColSelect" onchange="onWeightColChange()"></select>
+      <span class="csv-info" id="csvInfo"></span>
+    </div>
+    <div class="deff-bar" id="deffBar"></div>
+  </div>
+
+  <div id="scopeBuilder" style="display:none">
+    <div class="controls-row">
+      <button class="btn btn-accent" onclick="addScope()">+ Add Scope</button>
+      <button class="btn btn-primary" id="runBtn" onclick="runQC()" disabled>Run Weight QC</button>
+      <button class="btn btn-secondary" onclick="resetAll()">Reset</button>
+      <div class="threshold-ctl">
+        <label>Warn / Fail (pp):</label>
+        <input type="number" id="warnT" value="0.5" step="0.1" min="0">
+        <label>/</label>
+        <input type="number" id="failT" value="1.0" step="0.1" min="0">
+      </div>
+    </div>
+    <div id="scopesArea"></div>
+  </div>
+
+  <div id="results"></div>
+</div>
+
+<script>
+// ══════════════════════════════════════
+// GLOBALS
+// ══════════════════════════════════════
+let csvData = null, csvHeaders = null, allScopes = [];
+const _uvCache = {};
+
+// ══════════════════════════════════════
+// TARGETS CSV UPLOAD
+// ══════════════════════════════════════
+document.getElementById('targetsInput').addEventListener('change', e => {
+  const file = e.target.files[0]; if (!file) return;
+  document.getElementById('targetsFilename').textContent = file.name;
+  document.getElementById('targetsZone').classList.add('loaded');
+  const rdr = new FileReader();
+  rdr.onload = ev => {
+    parseTargetsCSV(ev.target.result);
+    document.getElementById('scopeBuilder').style.display = 'block';
+    renderScopes();
+    checkReady();
+  };
+  rdr.readAsText(file);
+});
+
+function parseTargetsCSV(text) {
+  const lines = text.split(/\r?\n/);
+  const headers = parseLine(lines[0]).map(h => h.toLowerCase().trim());
+
+  // Detect column indices
+  const iGroupVar = headers.findIndex(h => h === 'group_var');
+  const iGroup = headers.findIndex(h => h === 'group');
+  const iField = headers.findIndex(h => h === 'field');
+  const iResponse = headers.findIndex(h => h === 'response');
+  const iPct = headers.findIndex(h => h === 'pct');
+
+  if (iField === -1 || iResponse === -1 || iPct === -1) {
+    alert('Targets CSV must have at least columns: field, response, pct');
+    return;
+  }
+
+  // Parse rows into scope structures
+  // Scope key = group_var + group (e.g. "w_voted_24g|ALL", "w_region_agg|FL")
+  const scopeMap = new Map();
+
+  for (let i = 1; i < lines.length; i++) {
+    if (!lines[i].trim()) continue;
+    const vals = parseLine(lines[i]);
+    const groupVar = iGroupVar >= 0 ? (vals[iGroupVar] || '').trim() : '';
+    const group = iGroup >= 0 ? (vals[iGroup] || '').trim() : 'ALL';
+    const field = (vals[iField] || '').trim();
+    const response = (vals[iResponse] || '').trim();
+    const pct = parseFloat(vals[iPct]) || 0;
+    if (!field || !response) continue;
+
+    const scopeKey = `${groupVar}||${group}`;
+    if (!scopeMap.has(scopeKey)) {
+      // Build scope name and filters
+      let name, filters = [];
+      if (!groupVar || group === 'ALL') {
+        name = 'National – All';
+      } else {
+        name = `${group}`;
+        filters = [{ col: groupVar.toUpperCase(), val: group }];
+        // Try case-insensitive match to CSV headers if available
+        if (csvHeaders) {
+          const match = csvHeaders.find(h => h.toLowerCase() === groupVar.toLowerCase());
+          if (match) filters[0].col = match;
+        }
+      }
+      scopeMap.set(scopeKey, { name, filters, groupsMap: new Map() });
+    }
+
+    const scopeData = scopeMap.get(scopeKey);
+    const fieldUpper = csvHeaders ? (csvHeaders.find(h => h.toLowerCase() === field.toLowerCase()) || field) : field;
+    if (!scopeData.groupsMap.has(fieldUpper)) {
+      scopeData.groupsMap.set(fieldUpper, []);
+    }
+    scopeData.groupsMap.get(fieldUpper).push({ val: response, pct });
+  }
+
+  // Convert to allScopes format
+  allScopes = [];
+  for (const [key, data] of scopeMap) {
+    const groups = [];
+    for (const [col, targets] of data.groupsMap) {
+      groups.push({ col, targets });
+    }
+    allScopes.push({ name: data.name, filters: data.filters, groups, collapsed: false });
+  }
+
+  document.getElementById('scopeBuilder').style.display = 'block';
+}
+
+// ══════════════════════════════════════
+// CSV
+// ══════════════════════════════════════
+document.getElementById('dataInput').addEventListener('change', e => {
+  const file = e.target.files[0]; if (!file) return;
+  document.getElementById('dataFilename').textContent = file.name;
+  document.getElementById('dataZone').classList.add('loaded');
+  const rdr = new FileReader();
+  rdr.onload = ev => {
+    parseCSV(ev.target.result);
+    document.getElementById('configArea').style.display = 'block';
+    document.getElementById('scopeBuilder').style.display = 'block';
+    populateWeightSelect();
+    onWeightColChange();
+    if (!allScopes.length) addScope();
+    else { renderScopes(); checkReady(); }
+  };
+  rdr.readAsText(file);
+});
+
+function parseCSV(text) {
+  const lines = text.split(/\r?\n/);
+  csvHeaders = parseLine(lines[0]);
+  csvData = [];
+  for (let i = 1; i < lines.length; i++) {
+    if (!lines[i].trim()) continue;
+    const vals = parseLine(lines[i]);
+    const row = {};
+    csvHeaders.forEach((h, idx) => row[h] = vals[idx] || '');
+    csvData.push(row);
+  }
+  Object.keys(_uvCache).forEach(k => delete _uvCache[k]);
+}
+
+function parseLine(line) {
+  const r=[]; let c='',q=false;
+  for(let i=0;i<line.length;i++){const ch=line[i];if(q){if(ch==='"'&&line[i+1]==='"'){c+='"';i++}else if(ch==='"')q=false;else c+=ch}else{if(ch==='"')q=true;else if(ch===','){r.push(c.trim());c=''}else c+=ch}}
+  r.push(c.trim()); return r;
+}
+
+function populateWeightSelect() {
+  const sel = document.getElementById('weightColSelect');
+  sel.innerHTML = '';
+  const wc = csvHeaders.filter(h => /weight/i.test(h));
+  (wc.length ? wc : csvHeaders.slice(-5)).forEach(c => { const o = document.createElement('option'); o.value=c; o.textContent=c; sel.appendChild(o); });
+  const n = wc.find(c => /NATL|NATIONAL/i.test(c));
+  if (n) sel.value = n;
+  document.getElementById('csvInfo').textContent = `${csvData.length.toLocaleString()} rows · ${csvHeaders.length} columns`;
+}
+
+function onWeightColChange() {
+  const wc = document.getElementById('weightColSelect').value;
+  if (!csvData || !wc) return;
+  const w = csvData.map(r => parseFloat(r[wc])||0).filter(v => v>0);
+  if (!w.length) { document.getElementById('deffBar').innerHTML='<div style="grid-column:1/-1;color:var(--fail);font-size:12px">No valid weights found.</div>'; return; }
+  w.sort((a,b)=>a-b);
+  const n=w.length, s=w.reduce((a,b)=>a+b,0), m=s/n;
+  const med=n%2===0?(w[n/2-1]+w[n/2])/2:w[Math.floor(n/2)];
+  const v=w.reduce((a,x)=>a+(x-m)**2,0)/n, deff=1+v/(m**2), eN=Math.round(n/deff);
+  document.getElementById('deffBar').innerHTML = `
+    <div class="ds"><div class="lbl">N (weighted)</div><div class="val">${n.toLocaleString()}</div></div>
+    <div class="ds"><div class="lbl">Weight Sum</div><div class="val">${s.toFixed(2)}</div></div>
+    <div class="ds"><div class="lbl">Mean / Median</div><div class="val">${m.toFixed(4)} / ${med.toFixed(4)}</div></div>
+    <div class="ds"><div class="lbl">Min / Max</div><div class="val">${w[0].toFixed(4)} / ${w[n-1].toFixed(4)}</div></div>
+    <div class="ds"><div class="lbl">CV</div><div class="val">${(Math.sqrt(v)/m).toFixed(4)}</div></div>
+    <div class="ds"><div class="lbl">Design Effect</div><div class="val">${deff.toFixed(3)}</div></div>
+    <div class="ds"><div class="lbl">Effective N</div><div class="val">${eN.toLocaleString()}</div></div>
+    <div class="ds"><div class="lbl">Eff. Rate</div><div class="val">${(100*eN/n).toFixed(1)}%</div></div>`;
+  renderScopes();
+}
+
+function uniqueVals(col) {
+  if (!_uvCache[col]) _uvCache[col] = [...new Set(csvData.map(r=>r[col]).filter(v=>v&&v.trim()))].sort();
+  return _uvCache[col];
+}
+
+// ══════════════════════════════════════
+// SEARCHABLE SELECT COMPONENT
+// ══════════════════════════════════════
+let openDropdown = null;
+
+document.addEventListener('click', e => {
+  if (openDropdown && !openDropdown.contains(e.target)) {
+    openDropdown.querySelector('.ss-dropdown').classList.remove('open');
+    openDropdown = null;
+  }
+});
+
+function createSearchableSelect(id, options, selectedVal, placeholder, onChange) {
+  // Returns HTML string. We'll use event delegation + global registry.
+  const displayText = selectedVal || placeholder;
+  const isPlaceholder = !selectedVal;
+  return `<div class="ss-wrap" id="${id}">
+    <div class="ss-display${isPlaceholder?' placeholder':''}" onclick="ssToggle('${id}')">${esc(displayText)}</div>
+    <div class="ss-dropdown">
+      <input class="ss-search" placeholder="Search…" oninput="ssFilter('${id}',this.value)" onclick="event.stopPropagation()">
+      <div class="ss-list">${options.map(o =>
+        `<div class="ss-opt${o===selectedVal?' selected':''}" data-val="${esc(o)}" onclick="ssSelect('${id}','${esc(o)}')">${esc(o)}</div>`
+      ).join('') || '<div class="ss-opt empty">No options</div>'}</div>
+    </div>
+  </div>`;
+}
+
+// Store callbacks globally keyed by ID
+const ssCallbacks = {};
+
+function ssToggle(id) {
+  const wrap = document.getElementById(id);
+  const dd = wrap.querySelector('.ss-dropdown');
+  const wasOpen = dd.classList.contains('open');
+
+  // Close any other open dropdown
+  if (openDropdown && openDropdown !== wrap) {
+    openDropdown.querySelector('.ss-dropdown').classList.remove('open');
+  }
+
+  if (wasOpen) {
+    dd.classList.remove('open');
+    openDropdown = null;
+  } else {
+    dd.classList.add('open');
+    openDropdown = wrap;
+    const input = dd.querySelector('.ss-search');
+    input.value = '';
+    ssFilter(id, '');
+    setTimeout(() => input.focus(), 10);
+  }
+}
+
+function ssFilter(id, query) {
+  const wrap = document.getElementById(id);
+  const q = query.toLowerCase();
+  wrap.querySelectorAll('.ss-opt:not(.empty)').forEach(el => {
+    el.style.display = el.dataset.val.toLowerCase().includes(q) ? '' : 'none';
+  });
+}
+
+function ssSelect(id, val) {
+  const wrap = document.getElementById(id);
+  wrap.querySelector('.ss-dropdown').classList.remove('open');
+  openDropdown = null;
+  const display = wrap.querySelector('.ss-display');
+  display.textContent = val;
+  display.classList.remove('placeholder');
+  if (ssCallbacks[id]) ssCallbacks[id](val);
+}
+
+// ══════════════════════════════════════
+// SCOPE MANAGEMENT
+// ══════════════════════════════════════
+function addScope() {
+  allScopes.push({ name: `Scope ${allScopes.length+1}`, filters: [], groups: [{ col: '', targets: [] }], collapsed: false });
+  document.getElementById('scopeBuilder').style.display = 'block';
+  renderScopes(); checkReady();
+}
+function removeScope(si) { allScopes.splice(si,1); renderScopes(); checkReady(); }
+function addFilter(si) { allScopes[si].filters.push({col:'',val:''}); renderScopes(); }
+function removeFilter(si,fi) { allScopes[si].filters.splice(fi,1); renderScopes(); }
+function addGroup(si) { allScopes[si].groups.push({col:'',targets:[]}); renderScopes(); }
+function removeGroup(si,gi) { allScopes[si].groups.splice(gi,1); renderScopes(); checkReady(); }
+function onScopeNameChange(si,v) { allScopes[si].name=v; }
+
+function onFilterColChange(si,fi,val) {
+  allScopes[si].filters[fi].col=val;
+  allScopes[si].filters[fi].val='';
+  renderScopes();
+}
+function onFilterValChange(si,fi,val) { allScopes[si].filters[fi].val=val; }
+
+function onGroupColChange(si,gi,val) {
+  const g=allScopes[si].groups[gi];
+  g.col=val;
+  g.targets = val && csvData ? uniqueVals(val).map(v=>({val:v,pct:0})) : [];
+  renderScopes(); checkReady();
+}
+
+function onTargetPctChange(si,gi,ti,val) {
+  allScopes[si].groups[gi].targets[ti].pct = parseFloat(val)||0;
+  const el = document.getElementById(`tsum-${si}-${gi}`);
+  if (el) {
+    const sum = allScopes[si].groups[gi].targets.reduce((a,t)=>a+t.pct,0);
+    el.textContent = `Σ ${sum.toFixed(2)}%`;
+    el.className = 'target-sum'+(Math.abs(sum-100)>0.5?' bad':'');
+  }
+  checkReady();
+}
+
+function toggleScope(si) { allScopes[si].collapsed=!allScopes[si].collapsed; renderScopes(); }
+
+function resetAll() {
+  allScopes = [];
+  document.getElementById('results').innerHTML = '';
+  renderScopes();
+  addScope();
+  checkReady();
+}
+
+function checkReady() {
+  document.getElementById('runBtn').disabled = !(csvData && allScopes.some(s=>s.groups.some(g=>g.col&&g.targets.some(t=>t.pct>0))));
+}
+
+// ══════════════════════════════════════
+// RENDER SCOPES
+// ══════════════════════════════════════
+function renderScopes() {
+  const area = document.getElementById('scopesArea');
+  const hasCsv = !!csvData;
+
+  let html = '';
+  allScopes.forEach((scope, si) => {
+    const fDesc = scope.filters.filter(f=>f.col&&f.val).map(f=>`${f.col}=${f.val}`).join(', ') || 'no filters';
+    const gCount = scope.groups.filter(g=>g.col).length;
+
+    html += `<div class="scope-card">
+      <div class="scope-card-header" onclick="toggleScope(${si})">
+        <div><span class="scope-card-title">${esc(scope.name)}</span><span class="scope-card-meta">${esc(fDesc)} · ${gCount} var${gCount!==1?'s':''}</span></div>
+        <div style="display:flex;gap:6px"><button class="btn btn-danger btn-sm" onclick="event.stopPropagation();removeScope(${si})">Remove</button></div>
+      </div>
+      <div class="scope-card-body${scope.collapsed?' collapsed':''}">`;
+
+    // Name
+    html += `<div class="sf-section"><label class="sf-label">Scope Name</label><input class="sf-input" value="${esc(scope.name)}" onchange="onScopeNameChange(${si},this.value)" style="max-width:300px"></div>`;
+
+    // Filters
+    html += `<div class="sf-section"><label class="sf-label">Filters (optional cross-tab)</label>`;
+    scope.filters.forEach((f, fi) => {
+      if (hasCsv) {
+        const filterColId = `fCol-${si}-${fi}`;
+        const filterValId = `fVal-${si}-${fi}`;
+        ssCallbacks[filterColId] = (v) => onFilterColChange(si,fi,v);
+        ssCallbacks[filterValId] = (v) => onFilterValChange(si,fi,v);
+        const resolvedCol = csvHeaders.find(h=>h.toLowerCase()===f.col.toLowerCase()) || f.col;
+        const valOptions = resolvedCol ? uniqueVals(resolvedCol) : [];
+        html += `<div class="filter-row">
+          ${createSearchableSelect(filterColId, csvHeaders, resolvedCol, '— select column —', null)}
+          ${createSearchableSelect(filterValId, valOptions, f.val, '— select value —', null)}
+          <button class="x-btn" onclick="removeFilter(${si},${fi})">✕</button>
+        </div>`;
+      } else {
+        html += `<div class="filter-row">
+          <div class="val-label" style="flex:1;font-family:'JetBrains Mono',monospace;font-size:11px">${esc(f.col)}</div>
+          <div class="val-label" style="flex:1">${esc(f.val)}</div>
+          <button class="x-btn" onclick="removeFilter(${si},${fi})">✕</button>
+        </div>`;
+      }
+    });
+    if (hasCsv) html += `<button class="btn-link" onclick="addFilter(${si})">+ Add filter</button>`;
+    html += `</div>`;
+
+    // Variable groups
+    html += `<div class="sf-section"><label class="sf-label">Variable Groups & Targets</label>`;
+    scope.groups.forEach((g, gi) => {
+      html += `<div class="vg-card"><div class="vg-header">`;
+      if (hasCsv) {
+        const gColId = `gCol-${si}-${gi}`;
+        ssCallbacks[gColId] = (v) => onGroupColChange(si,gi,v);
+        const resolvedCol = csvHeaders.find(h=>h.toLowerCase()===g.col.toLowerCase()) || g.col;
+        html += createSearchableSelect(gColId, csvHeaders, resolvedCol, '— select variable —', null);
+      } else {
+        html += `<div class="val-label" style="flex:1;font-family:'JetBrains Mono',monospace;font-size:11px">${esc(g.col)}</div>`;
+      }
+      html += `<button class="x-btn" onclick="removeGroup(${si},${gi})" style="font-size:11px">remove</button></div>`;
+
+      if (g.col && g.targets.length) {
+        html += `<div style="display:grid;grid-template-columns:1fr 100px 28px;gap:6px;margin-bottom:4px;font-size:10px;color:var(--text-muted)"><span>Value</span><span style="text-align:right">Target %</span><span></span></div>`;
+        g.targets.forEach((t,ti) => {
+          html += `<div class="target-row">
+            <div class="val-label" title="${esc(t.val)}">${esc(t.val)}</div>
+            <input value="${t.pct||''}" placeholder="0" onchange="onTargetPctChange(${si},${gi},${ti},this.value)" onfocus="this.select()">
+            <button class="x-btn" onclick="allScopes[${si}].groups[${gi}].targets.splice(${ti},1);renderScopes()">✕</button>
+          </div>`;
+        });
+        const sum = g.targets.reduce((a,t)=>a+t.pct,0);
+        html += `<div class="target-sum${Math.abs(sum-100)>0.5?' bad':''}" id="tsum-${si}-${gi}">Σ ${sum.toFixed(2)}%</div>`;
+      } else if (g.col) {
+        html += `<div class="load-vals-msg">No values found for this column.</div>`;
+      } else {
+        html += `<div class="load-vals-msg">Select a variable to see its values.</div>`;
+      }
+      html += `</div>`;
+    });
+    if (hasCsv) html += `<button class="btn-link" onclick="addGroup(${si})">+ Add variable group</button>`;
+    html += `</div>`;
+
+    html += `</div></div>`;
+  });
+  area.innerHTML = html;
+}
+
+function esc(s){if(!s)return '';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
+
+// ══════════════════════════════════════
+// QC ENGINE
+// ══════════════════════════════════════
+function runQC() {
+  const wCol = document.getElementById('weightColSelect').value;
+  const wTh = parseFloat(document.getElementById('warnT').value)||0.5;
+  const fTh = parseFloat(document.getElementById('failT').value)||1.0;
+  if (!wCol) return alert('Select a weight column.');
+
+  // Helper: find CSV column case-insensitively
+  function resolveCol(name) {
+    if (!name) return null;
+    const exact = csvHeaders.find(h => h === name);
+    if (exact) return exact;
+    return csvHeaders.find(h => h.toLowerCase() === name.toLowerCase()) || null;
+  }
+
+  const scopeResults = [];
+  for (const scope of allScopes) {
+    let data = csvData;
+    const fDescs = [];
+    for (const f of scope.filters) {
+      if (!f.col||!f.val) continue;
+      const col = resolveCol(f.col);
+      if (!col) { fDescs.push(`⚠ ${f.col} not found`); continue; }
+      data = data.filter(r=>r[col]===f.val);
+      fDescs.push(`${col} = "${f.val}" (n=${data.length})`);
+    }
+    const gResults = [];
+    for (const g of scope.groups) {
+      if (!g.col) continue;
+      const col = resolveCol(g.col);
+      if (!col) { gResults.push({col:g.col,rows:[],status:'fail',error:`Column "${g.col}" not found`,sumTarget:0,sumActual:0}); continue; }
+      let tW=0; data.forEach(r=>tW+=parseFloat(r[wCol])||0);
+      const rows=[]; let sT=0,sA=0;
+      for (const t of g.targets) {
+        if (!t.pct&&t.pct!==0) continue;
+        let wc=0,uc=0;
+        data.forEach(r=>{if(r[col]===t.val){wc+=parseFloat(r[wCol])||0;uc++}});
+        const act=tW>0?(wc/tW)*100:0, diff=act-t.pct, ad=Math.abs(diff);
+        const st=t.pct===0?'pass':(ad>=fTh?'fail':ad>=wTh?'warn':'pass');
+        rows.push({label:t.val,target:t.pct,actual:act,diff,n:uc,status:st});
+        sT+=t.pct; sA+=act;
+      }
+      const hf=rows.some(r=>r.status==='fail'), hw=rows.some(r=>r.status==='warn');
+      gResults.push({col:g.col,rows,status:hf?'fail':hw?'warn':'pass',sumTarget:sT,sumActual:sA});
+    }
+    scopeResults.push({scope,filterDescs:fDescs,groupResults:gResults,n:data.length});
+  }
+  renderResults(scopeResults,wTh,fTh);
+
+  // Collapse scope cards and scroll to results
+  allScopes.forEach(s => s.collapsed = true);
+  renderScopes();
+  setTimeout(() => document.getElementById('results').scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+}
+
+// ══════════════════════════════════════
+// RENDER RESULTS
+// ══════════════════════════════════════
+function renderResults(SR,wTh,fTh) {
+  const ct=document.getElementById('results');
+  const ar=SR.flatMap(s=>s.groupResults.flatMap(g=>g.rows)).filter(r=>r.target>0);
+  const pC=ar.filter(r=>r.status==='pass').length, wC=ar.filter(r=>r.status==='warn').length, fC=ar.filter(r=>r.status==='fail').length;
+
+  let h=`<div class="summary-bar">
+    <div class="summary-card"><div class="num">${ar.length}</div><div class="desc">Targets checked</div></div>
+    <div class="summary-card pass"><div class="num">${pC}</div><div class="desc">Pass (&lt; ${wTh}pp)</div></div>
+    <div class="summary-card warn"><div class="num">${wC}</div><div class="desc">Warning (${wTh}–${fTh}pp)</div></div>
+    <div class="summary-card fail"><div class="num">${fC}</div><div class="desc">Fail (≥ ${fTh}pp)</div></div>
+  </div><div class="results-layout"><div class="scope-nav"><div class="scope-nav-title">Scopes</div>`;
+
+  SR.forEach((sr,si)=>{
+    const grs=sr.groupResults, bc=grs.some(g=>g.status==='fail')?'badge-fail':grs.some(g=>g.status==='warn')?'badge-warn':'badge-pass';
+    const ic=grs.filter(g=>g.status!=='pass').length;
+    h+=`<div class="scope-nav-item${si===0?' active':''}" onclick="switchScope(${si},this)">
+      <span class="nav-label">${esc(sr.scope.name)}</span>
+      ${ic>0?`<span class="nav-badge ${bc}">${ic}</span>`:`<span class="nav-badge badge-pass">✓</span>`}
+    </div>`;
+  });
+  h+=`</div><div class="results-main">`;
+
+  SR.forEach((sr,si)=>{
+    h+=`<div class="scope-section${si===0?' active':''}" id="scope-${si}">`;
+    const fs=sr.filterDescs.length?sr.filterDescs.join(' → '):'All respondents';
+    h+=`<div class="scope-hdr">${esc(sr.scope.name)} <span class="info">${fs} · n=${sr.n.toLocaleString()}</span></div>`;
+    const sg=sr.groupResults;
+    h+=`<div class="filter-tabs">
+      <button class="filter-tab active" onclick="filterScope(${si},'all',this)">All <span class="count">${sg.length}</span></button>
+      <button class="filter-tab" onclick="filterScope(${si},'fail',this)">Issues <span class="count">${sg.filter(g=>g.status!=='pass').length}</span></button>
+      <button class="filter-tab" onclick="filterScope(${si},'pass',this)">Passing <span class="count">${sg.filter(g=>g.status==='pass').length}</span></button>
+    </div>`;
+
+    for(const gr of sg){
+      const bc=gr.error?'badge-fail':`badge-${gr.status}`;
+      h+=`<div class="section" data-status="${gr.error?'fail':gr.status}">
+        <div class="section-header" onclick="toggleSection(this)">
+          <div style="display:flex;align-items:center;gap:8px"><span class="chevron">▼</span><span class="section-title">${esc(gr.col)}</span></div>
+          <span class="section-badge ${bc}">${gr.error?'ERROR':gr.status.toUpperCase()}</span>
+        </div>`;
+      if(gr.error){h+=`<div class="section-body"><div style="padding:14px;color:var(--fail);font-size:12px">⚠ ${esc(gr.error)}</div></div></div>`;continue;}
+      h+=`<div class="section-body"><table class="section-table"><thead><tr><th>Value</th><th class="vc">n (unwtd)</th><th class="vc">Target %</th><th class="vc">Actual %</th><th class="vc">Diff (pp)</th><th>Status</th></tr></thead><tbody>`;
+      for(const r of gr.rows){
+        if(r.target===0)continue;
+        const rc=`row-${r.status}`, ds=r.diff>=0?`+${r.diff.toFixed(4)}`:r.diff.toFixed(4);
+        h+=`<tr class="${rc}"><td>${esc(r.label)}</td><td class="mono vc">${r.n.toLocaleString()}</td><td class="mono vc">${r.target.toFixed(4)}%</td><td class="mono vc">${r.actual.toFixed(4)}%</td><td class="mono vc"><span class="diff-badge diff-${r.status}">${ds}</span></td><td><span class="diff-badge diff-${r.status}">${r.status.toUpperCase()}</span></td></tr>`;
+      }
+      const sd=gr.sumActual-gr.sumTarget;
+      h+=`<tr class="section-sum-row"><td>Σ Total</td><td></td><td class="mono vc">${gr.sumTarget.toFixed(2)}%</td><td class="mono vc">${gr.sumActual.toFixed(2)}%</td><td class="mono vc" style="font-size:10px;color:${Math.abs(sd)>0.1?'var(--warn)':'var(--text-muted)'};">${sd>=0?'+':''}${sd.toFixed(4)}</td><td></td></tr>`;
+      h+=`</tbody></table></div></div>`;
+    }
+    h+=`</div>`;
+  });
+  h+=`</div></div>`;
+  ct.innerHTML=h;
+}
+
+function switchScope(i,el){document.querySelectorAll('.scope-nav-item').forEach(n=>n.classList.remove('active'));el.classList.add('active');document.querySelectorAll('.scope-section').forEach(s=>s.classList.remove('active'));document.getElementById(`scope-${i}`).classList.add('active')}
+function toggleSection(h){let el=h.nextElementSibling;while(el&&!el.classList.contains('section-body'))el=el.nextElementSibling;if(el){el.classList.toggle('collapsed');h.querySelector('.chevron').classList.toggle('collapsed')}}
+function filterScope(si,type,btn){const se=document.getElementById(`scope-${si}`);se.querySelectorAll('.filter-tab').forEach(t=>t.classList.remove('active'));btn.classList.add('active');se.querySelectorAll('.section').forEach(s=>{const st=s.dataset.status;if(type==='all')s.style.display='';else if(type==='fail')s.style.display=st!=='pass'?'':'none';else s.style.display=st==='pass'?'':'none'})}
+</script>
+</body>
+</html>
