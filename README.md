@@ -29,7 +29,7 @@ A self-contained React app (bundled via esbuild) for exploratory analysis of wei
 A stateless dashboard for monitoring quota completion during live survey fielding.
 
 **Features:**
-- Upload a banner book CSV (tab-separated, fixed-width output from Stata)
+- Upload a toplines txt from Searchlight nightly returns
 - Tracks gender, age, education, vote recall, language, region, and competitive CD quotas
 - Overview tab with N targets by region and overall completion
 - Per-group quota panels with color-coded progress bars (green = on target, amber = slight deviation, red = off target)
@@ -58,11 +58,11 @@ A tool for validating post-weighting proportions against pre-specified targets.
 
 ### 4. `weight_qc_targets.html` — Weight QC Targets Reference
 
-A companion reference file containing the target proportions used by the Weight QC Tool for the XSS State Series.
+A companion reference file containing the target proportions used by the Weight QC Tool using an exported CSV of weights.
 
 **Contents:**
 - National and regional weighting targets (gender, age, education, vote recall, language, region, urbanicity)
-- Formatted for direct use with `WEIGHTQC_AY.html`
+- Works similarly as `WEIGHTQC_AY.html` but allows uploads of weighting targets via csv upload 
 
 ---
 
