@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Survey Fielding Quota Tracker</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#f4f5f7;--surface:#fff;--border:#e0e0e8;--text:#1a1a2e;--dim:#3a3a4e;--muted:#6b6b80;--faint:#a0a0b0;--accent:#5b63d3;--green:#16a34a;--amber:#d97706;--red:#dc2626}
+body{background:var(--bg);color:var(--text);font-family:'Outfit',sans-serif;padding:24px 32px;line-height:1.5}
+h1{font-size:24px;font-weight:700;letter-spacing:-.5px}
+.header{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;flex-wrap:wrap;gap:12px}
+.sub{font-size:13px;color:var(--muted);margin-top:2px}
+.actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.btn{background:var(--surface);color:var(--muted);border:1px solid var(--border);border-radius:8px;padding:7px 14px;cursor:pointer;font-size:13px;font-family:inherit;transition:all .15s}
+.btn:hover{border-color:var(--accent);color:var(--dim)}
+.btn-on{background:var(--accent);color:#fff}
+.btn-d{color:var(--red)}.btn-d:hover{border-color:var(--red)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:20px;margin-bottom:16px;box-shadow:0 1px 3px rgba(0,0,0,.04)}
+.ct{font-size:14px;font-weight:600;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px}
+.ctr{color:var(--accent);font-size:13px;font-weight:400}
+.metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:20px}
+.mc{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px;box-shadow:0 1px 3px rgba(0,0,0,.04)}
+.mc .label{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:4px}
+.mc .val{font-size:26px;font-weight:700;color:var(--accent)}
+.mc .msub{font-size:12px;color:var(--muted);margin-top:2px}
+.uz{border:2px dashed var(--border);border-radius:8px;padding:24px;text-align:center;cursor:pointer;margin-bottom:20px;transition:all .2s}
+.uz.over{border-color:var(--accent);background:rgba(91,99,211,.04)}
+.uz:hover{border-color:#bbb}
+.uz input{display:none}
+.uz b{color:var(--accent)}
+.tabs{display:flex;gap:4px;margin-bottom:16px;flex-wrap:wrap;border-bottom:1px solid var(--border);padding-bottom:8px}
+.tab{padding:6px 14px;border-radius:6px;cursor:pointer;font-size:13px;color:var(--muted);transition:all .15s;user-select:none}
+.tab:hover{color:var(--dim);background:rgba(91,99,211,.06)}
+.tab.on{background:var(--accent);color:#fff;font-weight:600}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:16px}
+@media(max-width:1100px){.g3{grid-template-columns:1fr 1fr}}
+@media(max-width:800px){.g2,.g3{grid-template-columns:1fr}}
+.nb{margin-bottom:10px}
+.nb-h{display:flex;justify-content:space-between;font-size:13px;margin-bottom:3px}
+.nb-t{height:7px;background:#eee;border-radius:4px;overflow:hidden}
+.nb-f{height:100%;border-radius:4px;transition:width .5s ease}
+.d-ok{color:var(--muted)}.d-hi{color:var(--amber)}.d-lo{color:var(--red)}
+.empty{text-align:center;padding:60px 20px;color:var(--faint)}
+.footer{text-align:center;font-size:11px;color:var(--faint);padding:20px 0}
+.toast{position:fixed;bottom:24px;right:24px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px 18px;font-size:13px;z-index:100;box-shadow:0 4px 20px rgba(0,0,0,.1);transform:translateY(80px);opacity:0;transition:all .3s}
+.toast.show{transform:translateY(0);opacity:1}
+.toast.success{border-color:var(--green)}.toast.error{border-color:var(--red)}
+.cfg-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:4px 20px}
+.cfg-row{display:flex;align-items:center;gap:8px;margin-bottom:4px}
+.cfg-row span{font-size:12px;color:var(--muted);min-width:180px}
+.cfg-input{border:1px solid var(--border);border-radius:4px;padding:4px 8px;width:70px;font-size:12px;text-align:right;font-family:inherit}
+.cfg-input:focus{outline:none;border-color:var(--accent)}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div class="toast" id="toast"></div>
+<script>
+// ============================================================
+// TRACKED VARIABLES (same across all formats)
+// ============================================================
+const TRACKED=['CELL','LISTED','LANG','GENDER','AGE2','EDUC','PRESVOT3','RACIAL',
+  'QTGROUP','COMPCONG','DIALREG','COMPCD','REGION'];
+const REF_L={GENDER:'Gender',AGE2:'Age',EDUC:'Education',PRESVOT3:'Vote Recall',
+  LANG:'Language',RACIAL:'Race',COMPCONG:'Comp/Non-Comp'};
+
+// Quota variables to show (order matters for display)
+const QUOTA_VARS=['GENDER','AGE2','EDUC','PRESVOT3','LANG','RACIAL'];
+
+// Default targets per variable (used for 'Total' banner col / All Sample)
+const DEFAULT_TARGETS={
+  GENDER:{Male:45,Female:53},
+  AGE2:{'18-29':24,'30-39':18,'40-49':15,'50-64':23,'65 and over':20},
+  EDUC:{'+H.S. or less':25,'Post H.S.':32,'College graduate':42},
+  PRESVOT3:{'Kamala Harris':50,'Donald Trump':32,'(Did not vote in this race)':11},
+  LANG:{English:90,Spanish:10},
+  RACIAL:{'Asian/Asian American':4,'African American/Black':13,'White/Caucasian':80,'(Mixed race)':2,'(Something else)':1},
+};
+
+// ============================================================
+// STATE
+// ============================================================
+let current=null, tab='overview', editing=false;
+let bannerCols=[]; // auto-detected from file
+let regionRef=null; // which ref has regions (QTGROUP, DIALREG, REGION)
+// Per banner-col targets: targets[bannerCol][ref][cat] = pct
+let targets={};
+// Region N targets: regionTargets[label] = N
+let regionTargets={};
+// Hidden groups
+let hidden={};
+
+function initTargetsForBanner(bc){
+  if(targets[bc])return;
+  targets[bc]={};
+  for(const[ref,cats]of Object.entries(DEFAULT_TARGETS)){
+    targets[bc][ref]={};
+    for(const[cat,pct]of Object.entries(cats))targets[bc][ref][cat]=pct;
+  }
+}
+
+// ============================================================
+// PARSER (auto-detects banner columns)
+// ============================================================
+function colPos(sep){const p=[];let i_=false,s=0;for(let i=0;i<sep.length;i++){if(sep[i]==='='&&!i_){i_=true;s=i}else if(sep[i]!=='='&&i_){p.push([s,i]);i_=false}}if(i_)p.push([s,sep.length]);return p}
+function exVals(l,pos){return pos.map(([s,e])=>l.substring(s,Math.min(e,l.length)).trim())}
+function pNum(s){if(!s||s==='-'||s==='')return null;return parseFloat(s.replace(/,/g,''))}
+
+function parseFile(text){
+  const D={date:null,time:null,tables:{},bannerCols:[]};
+  const dm=text.match(/=== (\d{2}\/\d{2}) at (\d{2}:\d{2}) ===/);
+  if(dm){D.date=dm[1];D.time=dm[2]}
+
+  // Auto-detect banner columns by merging multiline headers
+  // Find first separator line and read the 1-3 header lines above it
+  const allLines=text.split('\n');
+  let firstSepIdx=-1;
+  for(let i=0;i<Math.min(allLines.length,50);i++){
+    if(allLines[i].match(/^\s+=+\s+=+/)){firstSepIdx=i;break}
+  }
+  if(firstSepIdx>=0){
+    const testPos=colPos(allLines[firstSepIdx]);
+    if(testPos.length>=2){
+      // Gather header lines above separator (skip blank/ref lines)
+      const headerLines=[];
+      for(let i=firstSepIdx-1;i>=Math.max(0,firstSepIdx-5);i--){
+        const l=allLines[i];
+        if(l.trim()===''||l.match(/\(ref:/)||l.match(/^={5,}/)||l.match(/^Page:/))break;
+        headerLines.unshift(l);
+      }
+      // For each column position, stack the text from all header lines vertically
+      D.bannerCols=testPos.map(([s,e])=>{
+        const parts=[];
+        for(const hl of headerLines){
+          const chunk=hl.substring(s,Math.min(e,hl.length)).trim();
+          if(chunk)parts.push(chunk);
+        }
+        return parts.join(' ');
+      });
+      // Clean up known multiline merges
+      D.bannerCols=D.bannerCols.map(c=>{
+        let s=c;
+        // Fix split names
+        s=s.replace(/Fem\s+ale/i,'Female');
+        s=s.replace(/Har\s+ris/i,'Harris');
+        s=s.replace(/Mid-?\s+Atl/i,'Mid-Atl');
+        s=s.replace(/Mid\s*west/i,'Midwest');
+        s=s.replace(/South\s+west/i,'Southwest');
+        s=s.replace(/Other\s+reg/i,'Other reg');
+        s=s.replace(/Comp\s+CD/i,'Comp CD');
+        s=s.replace(/East\s+Coast\s+MWest/i,'East Coast/MWest');
+        s=s.replace(/Total\s+unwt/i,'Total unwt');
+        s=s.replace(/Split\s+A/i,'Split A');
+        s=s.replace(/Split\s+B/i,'Split B');
+        // Fix voter columns (must come before 2024 strip)
+        s=s.replace(/2024\s+Did\s+not/i,'Did not vote');
+        s=s.replace(/2024\s+Har\s*ris/i,'Harris');
+        s=s.replace(/2024\s+Pres\s+voted/i,'2024 Pres voted');
+        s=s.replace(/2024\s+Trump/i,'Trump');
+        // Strip any remaining leading "2024" prefix
+        s=s.replace(/^2024\s+/,'');
+        // Final fixes
+        if(s.match(/^Pres\s+voted$/i))s='2024 Pres voted';
+        if(s.match(/^Did\s+not$/i))s='Did not vote';
+        return s.trim();
+      });
+    }
+  }
+
+  const blocks=text.split(/={50,}\nPage: (\d+)/);
+  for(let i=1;i<blocks.length;i+=2){
+    const lines=blocks[i+1].split('\n');
+    let ref='';
+    for(const l of lines){const m=l.match(/\(ref:([^)]+)\)/);if(m){ref=m[1].trim();break}}
+    if(!TRACKED.includes(ref))continue;
+    let cp=null,si=-1;
+    for(let j=0;j<lines.length;j++){if(lines[j].match(/^\s+=+\s+=+/)){cp=colPos(lines[j]);si=j;break}}
+    if(!cp||cp.length<2)continue;
+    const T={totalN:[],rows:{},nCols:cp.length};let ft=false,cl=null;
+    for(let j=si+1;j<lines.length;j++){
+      const l=lines[j];
+      if(l.trim()===''){cl=null;continue}
+      if(l.match(/Total answering/)){T.totalN=exVals(l,cp).map(v=>pNum(v));ft=true;if(j+1<lines.length&&lines[j+1].match(/^\s+100\.0/))j++;continue}
+      if(!ft)continue;
+      if(l.match(/^\s+[\d.]+/)){if(cl&&T.rows[cl]&&!T.rows[cl].pcts){T.rows[cl].pcts=exVals(l,cp).map(v=>pNum(v))}continue}
+      const lt=l.substring(0,cp[0][0]).trim();
+      if(!lt){if(cl){const c=l.trim().split(/\s{2,}/)[0];if(c&&!c.match(/^[\d.]+$/)){const nl=cl+' '+c;T.rows[nl]=T.rows[cl];delete T.rows[cl];cl=nl}}continue}
+      const vals=exVals(l,cp);
+      if(vals.length>=cp.length-1){
+        const fv=pNum(vals[0]);
+        if(cl&&fv!==null&&fv<101&&T.rows[cl]&&!T.rows[cl].pcts){
+          const merged=cl+' '+lt.replace(/\s+/g,' ').trim();
+          T.rows[merged]=T.rows[cl];delete T.rows[cl];
+          T.rows[merged].pcts=vals.map(v=>pNum(v));cl=merged;
+        }else{cl=lt.replace(/\s+/g,' ').trim();T.rows[cl]={ns:vals.map(v=>pNum(v))}}
+      }
+    }
+    if(D.tables[ref]){if((T.totalN[0]||0)>(D.tables[ref].totalN[0]||0))D.tables[ref]=T}else D.tables[ref]=T;
+  }
+  return D;
+}
+
+function extractM(parsed){
+  // Auto-detect banner columns from first table with enough columns
+  let detectedCols=parsed.bannerCols;
+  if(!detectedCols.length){
+    // Fallback: try to get from any table
+    for(const T of Object.values(parsed.tables)){
+      if(T.totalN.length>=2){
+        detectedCols=T.totalN.map((_,i)=>'Col'+i);
+        detectedCols[0]='Total';
+        break;
+      }
+    }
+  }
+
+  const m={date:parsed.date,time:parsed.time,totalN:0,bd:{},cols:detectedCols};
+  for(const[ref,T]of Object.entries(parsed.tables)){
+    m.bd[ref]={_tn:{}};
+    detectedCols.forEach((c,i)=>{m.bd[ref]._tn[c]=T.totalN[i]});
+    for(const[label,rd]of Object.entries(T.rows)){
+      m.bd[ref][label]={};
+      detectedCols.forEach((c,i)=>{m.bd[ref][label][c]={n:(rd.ns||[])[i],pct:(rd.pcts||[])[i]}});
+    }
+  }
+
+  // Detect region ref
+  if(m.bd.QTGROUP)regionRef='QTGROUP';
+  else if(m.bd.DIALREG){regionRef='DIALREG';m.bd.QTGROUP=m.bd.DIALREG}
+  else if(m.bd.REGION){regionRef='REGION';m.bd.QTGROUP=m.bd.REGION}
+
+  if(m.bd.COMPCD&&!m.bd.COMPCONG)m.bd.COMPCONG=m.bd.COMPCD;
+
+  const gt=parsed.tables['GENDER']||parsed.tables['QTGROUP']||parsed.tables['DIALREG']||parsed.tables['REGION'];
+  if(gt)m.totalN=gt.totalN[0]||0;
+
+  // Store detected banner cols globally
+  bannerCols=detectedCols;
+
+  // Initialize targets for detected banner cols
+  for(const bc of detectedCols)initTargetsForBanner(bc);
+
+  // Auto-populate region N targets from the data
+  if(m.bd.QTGROUP){
+    for(const[label,cd]of Object.entries(m.bd.QTGROUP)){
+      if(label==='_tn')continue;
+      if(!(label in regionTargets))regionTargets[label]=0; // placeholder
+    }
+  }
+
+  return m;
+}
+
+// ============================================================
+// HELPERS
+// ============================================================
+function gv(d,ref,lab,bc,f){try{return d.bd[ref][lab][bc][f]}catch(e){return null}}
+function gvf(d,ref,lab,bc,f){const v=gv(d,ref,lab,bc,f);if(v!=null)return v;try{const px=lab.substring(0,15).toLowerCase();for(const[k,cd]of Object.entries(d.bd[ref])){if(k==='_tn')continue;if(k.toLowerCase().startsWith(px))return cd[bc]?.[f]??null}}catch(e){}return null}
+function gtn(d,ref,bc){try{return d.bd[ref]._tn[bc]}catch(e){return null}}
+function toast(m,t){const el=document.getElementById('toast');el.textContent=m;el.className='toast show '+t;setTimeout(()=>el.className='toast',3000)}
+function getTgt(bc,ref,cat){try{return targets[bc]?.[ref]?.[cat]??0}catch(e){return 0}}
+
+function pctRow(label,actual,target){
+  const a=actual??null,r=a!=null?Math.round(a):null,diff=r!=null?r-target:null;
+  const ds=diff!=null?(diff>=0?'+'+diff:''+diff):'';
+  const offBy=diff!=null?Math.abs(diff):0;
+  const bg=offBy<=1?'':'rgba('+(offBy<=3?'217,119,6':'220,38,38')+','+(offBy<=3?'.06':'.08')+')';
+  const dc=offBy<=1?'color:var(--muted)':(offBy<=3?'color:var(--amber);font-weight:600':'color:var(--red);font-weight:600');
+  return `<tr style="background:${bg}">
+    <td style="padding:6px 10px;color:var(--dim)">${label}</td>
+    <td style="padding:6px 10px;text-align:right;color:var(--muted)">${target}%</td>
+    <td style="padding:6px 10px;text-align:right;font-weight:600">${a!=null?a.toFixed(1)+'%':'\u2014'}</td>
+    <td style="padding:6px 10px;text-align:right;${dc}">${ds?ds+'pp':''}</td>
+  </tr>`;
+}
+
+function nBar(cur,tgt,label){
+  const pct=tgt>0?Math.min((cur/tgt)*100,100):0;
+  return `<div class="nb"><div class="nb-h"><span style="color:var(--dim)">${label}</span>
+    <span style="font-weight:600;color:${cur>=tgt?'var(--green)':'var(--text)'}">
+      ${cur.toLocaleString()} / ${tgt.toLocaleString()} (${pct.toFixed(0)}%)</span>
+  </div><div class="nb-t"><div class="nb-f" style="width:${pct}%;background:${cur>=tgt?'var(--green)':'var(--accent)'}"></div></div></div>`;
+}
+
+// ============================================================
+// RENDER QUOTA GROUP for a banner column
+// ============================================================
+function renderQG(bc,label){
+  if(!current)return '';
+  const tn=gtn(current,QUOTA_VARS[0],bc);
+  let h=`<div class="ct"><span>${label||bc}</span><span class="ctr">Banner: ${bc} ${tn?'(n='+tn.toLocaleString()+')':''}</span></div>`;
+  h+=`<table style="width:100%;border-collapse:collapse;font-size:13px">
+  <thead><tr style="border-bottom:1px solid var(--border)">
+    <th style="padding:6px 10px;text-align:left;font-size:11px;font-weight:500;color:var(--faint)">Category</th>
+    <th style="padding:6px 10px;text-align:right;font-size:11px;font-weight:500;color:var(--faint)">Target</th>
+    <th style="padding:6px 10px;text-align:right;font-size:11px;font-weight:500;color:var(--faint)">Actual</th>
+    <th style="padding:6px 10px;text-align:right;font-size:11px;font-weight:500;color:var(--faint)">Diff</th>
+  </tr></thead>`;
+
+  for(const ref of QUOTA_VARS){
+    if(!current.bd[ref])continue;
+    const cats=targets[bc]?.[ref]||{};
+    const activeCats=Object.entries(cats).filter(([,t])=>t!==0);
+    if(!activeCats.length)continue;
+    h+=`<tr><td colspan="4" style="padding:10px 10px 4px;font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--border)">${REF_L[ref]||ref}</td></tr>`;
+    for(const[cat,tgt]of activeCats){
+      h+=pctRow(cat,gvf(current,ref,cat,bc,'pct'),tgt);
+    }
+    // Harris 2-way
+    if(ref==='PRESVOT3'){
+      const hP=gvf(current,'PRESVOT3','Kamala Harris',bc,'pct');
+      const tP=gvf(current,'PRESVOT3','Donald Trump',bc,'pct');
+      const hT=cats['Kamala Harris']||0,tT=cats['Donald Trump']||0;
+      if(hP!=null&&tP!=null&&(hP+tP)>0){
+        const a2=((hP/(hP+tP))*100);
+        const t2=(hT+tT)>0?((hT/(hT+tT))*100):0;
+        if(t2>0)h+=pctRow('Harris 2-way',a2,Math.round(t2));
+      }
+    }
+    // Education 2-way
+    if(ref==='EDUC'){
+      const hsA=gvf(current,'EDUC','+H.S. or less',bc,'pct');
+      const scA=gvf(current,'EDUC','Post H.S.',bc,'pct');
+      const collA=gvf(current,'EDUC','College graduate',bc,'pct');
+      const hsT=cats['+H.S. or less']||0,scT=cats['Post H.S.']||0,collT=cats['College graduate']||0;
+      const ncA=(hsA!=null&&scA!=null)?(hsA+scA):null;
+      if(hsT+scT>0||collT>0){
+        h+=`<tr><td colspan="4" style="padding:8px 10px 2px;font-size:11px;font-weight:600;color:var(--faint);letter-spacing:.5px">EDUCATION 2-WAY</td></tr>`;
+        if(hsT+scT>0)h+=pctRow('Non-college (HS + Some college)',ncA,hsT+scT);
+        if(collT>0)h+=pctRow('College+',collA,collT);
+      }
+    }
+  }
+  h+=`</table>`;
+  return h;
+}
+
+// ============================================================
+// RENDER EDIT PANEL
+// ============================================================
+function renderEditPanel(){
+  let h='';
+  // Region N targets
+  if(Object.keys(regionTargets).length>0){
+    h+=`<div class="card"><div class="ct">Region N Targets</div><div class="cfg-grid">`;
+    for(const[label,n]of Object.entries(regionTargets)){
+      const esc=label.replace(/'/g,"\\'");
+      h+=`<div class="cfg-row"><span>${label}</span>
+        <input class="cfg-input" type="number" value="${n}" onchange="regionTargets['${esc}']=parseInt(this.value)||0;render()"></div>`;
+    }
+    h+=`</div></div>`;
+  }
+  // Per-banner-col targets
+  for(const bc of bannerCols){
+    if(bc==='Total unwt')continue;
+    const t=targets[bc];if(!t)continue;
+    h+=`<div class="card"><div class="ct"><span>${bc}</span></div><div class="cfg-grid">`;
+    for(const ref of QUOTA_VARS){
+      if(!t[ref])continue;
+      for(const[cat,pct]of Object.entries(t[ref])){
+        const escC=cat.replace(/'/g,"\\'");
+        h+=`<div class="cfg-row"><span>${REF_L[ref]||ref}: ${cat}</span>
+          <input class="cfg-input" type="number" step="0.1" value="${pct}" onchange="targets['${bc}']['${ref}']['${escC}']=parseFloat(this.value)||0;render()"> %</div>`;
+      }
+    }
+    h+=`</div></div>`;
+  }
+  return h;
+}
+
+// ============================================================
+// EXPORT
+// ============================================================
+function dlCSV(rows,fn){const csv=rows.map(r=>r.map(c=>String(c).includes(',')?'"'+c+'"':c).join(',')).join('\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download=fn;a.click()}
+
+function exportTargets(){
+  const rows=[['Banner Column','Variable','Category','Target %']];
+  for(const[label,n]of Object.entries(regionTargets))rows.push(['N Targets','Region',label,n]);
+  for(const bc of bannerCols){
+    const t=targets[bc];if(!t)continue;
+    for(const ref of QUOTA_VARS){if(!t[ref])continue;for(const[cat,pct]of Object.entries(t[ref]))rows.push([bc,REF_L[ref]||ref,cat,pct])}
+  }
+  dlCSV(rows,'quota-targets.csv');toast('Exported targets','success');
+}
+
+function exportData(){
+  if(!current)return;
+  const rows=[['Banner Column','Variable','Category','N','Actual %','Target %','Diff (pp)']];
+  for(const[label,tgt]of Object.entries(regionTargets)){
+    if(tgt<=0)continue;
+    const n=getRegionN(label);
+    rows.push(['Region N',label,'',n,'',tgt,n-tgt]);
+  }
+  for(const bc of bannerCols){
+    const t=targets[bc];if(!t||hidden[bc])continue;
+    for(const ref of QUOTA_VARS){
+      if(!t[ref]||!current.bd[ref])continue;
+      for(const[cat,tgt]of Object.entries(t[ref])){
+        if(tgt===0)continue;
+        const actual=gvf(current,ref,cat,bc,'pct');
+        const n=gvf(current,ref,cat,bc,'n');
+        rows.push([bc,REF_L[ref]||ref,cat,n||'',actual!=null?actual.toFixed(1):'',tgt,actual!=null?Math.round(actual)-tgt:'']);
+      }
+      if(ref==='PRESVOT3'){
+        const hP=gvf(current,'PRESVOT3','Kamala Harris',bc,'pct'),tP=gvf(current,'PRESVOT3','Donald Trump',bc,'pct');
+        const hT=t[ref]['Kamala Harris']||0,tT=t[ref]['Donald Trump']||0;
+        if(hP!=null&&tP!=null&&(hP+tP)>0&&(hT+tT)>0){
+          const a2=(hP/(hP+tP))*100,t2=(hT/(hT+tT))*100;
+          rows.push([bc,'Vote Recall','Harris 2-way','',a2.toFixed(1),t2.toFixed(1),Math.round(a2)-Math.round(t2)]);
+        }
+      }
+    }
+  }
+  const label=current.nightLabel||'data';
+  dlCSV(rows,'quota-check-'+label.replace(/\s+/g,'_')+'.csv');
+  toast('Exported data','success');
+}
+
+function importTargets(file){
+  const reader=new FileReader();
+  reader.onload=function(e){
+    const lines=e.target.result.trim().split('\n');
+    if(lines.length<2){toast('Empty CSV','error');return}
+    const header=lines[0].split(',').map(s=>s.replace(/"/g,'').trim().toLowerCase());
+    const bi=header.indexOf('banner column'),vi=header.indexOf('variable'),ci=header.indexOf('category'),ti=header.indexOf('target %');
+    if(ti===-1){toast('CSV needs "Target %" column','error');return}
+    let imported=0;
+    for(let i=1;i<lines.length;i++){
+      const row=[];let cur='',inQ=false;
+      for(const ch of lines[i]){if(ch==='"')inQ=!inQ;else if(ch===','&&!inQ){row.push(cur.trim());cur=''}else cur+=ch}
+      row.push(cur.trim());
+      const bc=row[bi]||'',variable=row[vi]||'',category=row[ci]||'',target=parseFloat(row[ti])||0;
+      if(bc.toLowerCase()==='n targets'||bc.toLowerCase()==='region n'){
+        if(category in regionTargets){regionTargets[category]=target;imported++}
+        continue;
+      }
+      if(!targets[bc])continue;
+      for(const ref of QUOTA_VARS){
+        if((REF_L[ref]||ref).toLowerCase()===variable.toLowerCase()){
+          if(targets[bc][ref]&&category in targets[bc][ref]){targets[bc][ref][category]=target;imported++}
+          break;
+        }
+      }
+    }
+    render();toast('Imported '+imported+' targets','success');
+  };reader.readAsText(file);
+}
+
+// ============================================================
+// REGION N HELPER
+// ============================================================
+function getRegionN(label){
+  if(!current||!current.bd.QTGROUP)return 0;
+  const kn=label.toLowerCase().replace(/\s+/g,' ').trim();
+  for(const[l,cd]of Object.entries(current.bd.QTGROUP)){
+    if(l==='_tn')continue;
+    const ln=l.toLowerCase().replace(/\s+/g,' ').trim();
+    if(ln===kn)return cd[bannerCols[0]]?.n||0;
+    if(kn.length>6&&ln.startsWith(kn.substring(0,Math.min(20,kn.length))))return cd[bannerCols[0]]?.n||0;
+  }
+  return 0;
+}
+
+// ============================================================
+// FILE HANDLING
+// ============================================================
+function handleFile(file){
+  const reader=new FileReader();
+  reader.onload=function(e){
+    const m=extractM(parseFile(e.target.result));
+    const nm=file.name.match(/NIGHT[_\s]*(\d+)/i);
+    m.nightLabel=nm?'Night '+nm[1]:file.name.replace('.txt','');
+    current=m;tab='overview';editing=false;render();
+    toast('\u2713 '+m.nightLabel+' \u2014 '+m.totalN.toLocaleString()+' interviews','success');
+  };reader.readAsText(file);
+}
+
+// ============================================================
+// MAIN RENDER
+// ============================================================
+function render(){
+  const tN=current?.totalN||0;
+  let h=`<div class="header"><div><h1>Survey Fielding Quota Tracker</h1>
+    <div class="sub">${current?current.nightLabel+' \u00b7 '+current.date+' at '+current.time+' \u00b7 '+tN.toLocaleString()+' interviews \u00b7 '+bannerCols.length+' banner columns detected':'Upload a topline .txt to check quotas'}</div>
+  </div>`;
+  if(current){
+    h+=`<div class="actions">
+      <button class="btn ${editing?'btn-on':''}" onclick="editing=!editing;render()">${editing?'Done':'Edit Targets'}</button>
+      <button class="btn" onclick="document.getElementById('tfi').click()">Import Targets</button>
+      <input type="file" id="tfi" accept=".csv" style="display:none" onchange="if(this.files[0])importTargets(this.files[0]);this.value=''">
+      <button class="btn" onclick="exportTargets()">Export Targets</button>
+      <button class="btn" onclick="exportData()">Export Data</button>
+      <button class="btn btn-d" onclick="current=null;tab='overview';editing=false;targets={};regionTargets={};hidden={};bannerCols=[];render()">Clear</button>
+    </div>`;
+  }
+  h+=`</div>`;
+
+  h+=`<div class="uz" id="dz" onclick="document.getElementById('fi').click()">
+    <input type="file" id="fi" accept=".txt" onchange="onFile(event)">
+    <div style="font-size:14px;color:var(--muted)"><b>Drop topline .txt here</b> or click to upload</div>
+    <div style="font-size:12px;color:var(--faint);margin-top:4px">${current?'Upload new file to replace \u00b7 Refresh to clear':'Auto-detects banner columns and format'}</div>
+  </div>`;
+
+  if(editing){h+=renderEditPanel();h+='<div class="footer">Nothing stored \u00b7 Refresh to reset</div>';document.getElementById('app').innerHTML=h;return}
+
+  if(!current){
+    h+=`<div class="empty"><div style="font-size:40px;margin-bottom:12px">\ud83d\udcca</div>
+      <div style="font-size:16px">Upload a topline to check quotas</div>
+      <div style="font-size:13px;margin-top:8px">Works with any topline format \u2014 auto-detects banner columns</div></div>`;
+    document.getElementById('app').innerHTML=h;return;
+  }
+
+  // Metrics
+  h+=`<div class="metrics">
+    <div class="mc"><div class="label">Total N</div><div class="val">${tN.toLocaleString()}</div><div class="msub">${bannerCols.length} banner cols</div></div>
+    <div class="mc"><div class="label">Format</div><div class="val" style="font-size:16px">${regionRef||'—'}</div><div class="msub">region variable</div></div>
+  </div>`;
+
+  // Build tabs dynamically from banner columns
+  const tabList=[{id:'overview',l:'Overview'}];
+  // Add 'Total' or first col as "All Sample"
+  if(bannerCols[0])tabList.push({id:bannerCols[0],l:'All Sample'});
+  // Add other meaningful banner cols (skip Total unwt, Split A/B, etc)
+  const skipCols=new Set([bannerCols[0]]); // only skip first col since it's already "All Sample"
+  for(const bc of bannerCols){
+    if(skipCols.has(bc)||hidden[bc])continue;
+    tabList.push({id:bc,l:bc});
+  }
+
+  if(hidden[tab]&&tab!=='overview')tab='overview';
+  h+=`<div class="tabs">`;
+  for(const t of tabList){
+    const isOn=tab===t.id?'on':'';
+    const canHide=t.id!=='overview'&&t.id!==bannerCols[0];
+    h+=`<div class="tab ${isOn}" onclick="setTab('${t.id}')">${t.l}`;
+    if(canHide) h+=` <span onclick="event.stopPropagation();hideCol('${t.id}')" style="margin-left:4px;opacity:.4;cursor:pointer" title="Hide">\u00d7</span>`;
+    h+=`</div>`;
+  }
+  h+=`</div>`;
+  // Hidden tabs toggle
+  const alwaysSkip=new Set(['Total unwt']);
+  const hiddenCols=bannerCols.filter(bc=>hidden[bc]&&!alwaysSkip.has(bc));
+  if(hiddenCols.length>0){
+    h+=`<div style="margin-bottom:16px;font-size:12px;color:var(--faint)">Hidden: `;
+    for(const bc of hiddenCols){
+      h+=`<span onclick="showCol('${bc}')" style="cursor:pointer;color:var(--accent);text-decoration:underline;margin-right:8px">${bc}</span>`;
+    }
+    h+=`</div>`;
+  }
+
+  if(tab==='overview'){
+    // Region N bars
+    const hasRegionTargets=Object.values(regionTargets).some(v=>v>0);
+    h+=`<div class="g2"><div class="card">
+      <div class="ct"><span>Overall Progress</span><span class="ctr">${tN.toLocaleString()} interviews</span></div>`;
+    if(current.bd.QTGROUP){
+      h+=`<div style="font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">Regions</div>`;
+      for(const[label]of Object.entries(current.bd.QTGROUP)){
+        if(label==='_tn')continue;
+        const n=current.bd.QTGROUP[label][bannerCols[0]]?.n||0;
+        const tgt=regionTargets[label]||0;
+        if(tgt>0)h+=nBar(n,tgt,label);
+        else h+=`<div style="font-size:13px;color:var(--dim);padding:4px 0">${label}: <strong>${n}</strong></div>`;
+      }
+    }
+    h+=`</div><div class="card"><div class="ct">Quick Quota Check</div>${bannerCols[0]?renderQG(bannerCols[0],'All Sample'):''}</div></div>`;
+
+  }else{
+    h+=`<div class="card">${renderQG(tab,tab===bannerCols[0]?'All Sample':tab)}</div>`;
+  }
+
+  h+='<div class="footer">Nothing stored \u00b7 Refresh to reset \u00b7 Auto-detects any topline format</div>';
+  document.getElementById('app').innerHTML=h;
+}
+
+// ============================================================
+// HANDLERS
+// ============================================================
+function onFile(e){const f=e.target.files[0];if(f)handleFile(f);e.target.value=''}
+function setTab(t){tab=t;render()}
+function hideCol(bc){hidden[bc]=true;if(tab===bc)tab='overview';render()}
+function showCol(bc){hidden[bc]=false;render()}
+document.addEventListener('DOMContentLoaded',()=>{render();
+  document.addEventListener('dragover',e=>{e.preventDefault();const d=document.getElementById('dz');if(d)d.classList.add('over')});
+  document.addEventListener('dragleave',e=>{const d=document.getElementById('dz');if(d&&!d.contains(e.relatedTarget))d.classList.remove('over')});
+  document.addEventListener('drop',e=>{e.preventDefault();const d=document.getElementById('dz');if(d)d.classList.remove('over');const f=e.dataTransfer.files[0];if(f&&f.name.endsWith('.txt'))handleFile(f)});
+});
+</script>
+</body>
+</html>
