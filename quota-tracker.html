@@ -1,0 +1,879 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Survey Fielding Quota Tracker</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#f4f5f7;--surface:#fff;--border:#e0e0e8;--text:#1a1a2e;--dim:#3a3a4e;--muted:#6b6b80;--faint:#a0a0b0;--accent:#5b63d3;--green:#16a34a;--amber:#d97706;--red:#dc2626}
+body{background:var(--bg);color:var(--text);font-family:'Outfit',sans-serif;padding:24px 32px;line-height:1.5}
+h1{font-size:24px;font-weight:700;letter-spacing:-.5px}
+h2{font-size:16px;font-weight:600;margin-bottom:12px}
+.header{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;flex-wrap:wrap;gap:12px}
+.sub{font-size:13px;color:var(--muted);margin-top:2px}
+.actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.btn{background:var(--surface);color:var(--muted);border:1px solid var(--border);border-radius:8px;padding:7px 14px;cursor:pointer;font-size:13px;font-family:inherit;transition:all .15s}
+.btn:hover{border-color:var(--accent);color:var(--dim)}
+.btn-p{background:var(--accent);color:#fff;border-color:var(--accent)}
+.btn-p:hover{opacity:.9}
+.btn-on{background:var(--accent);color:#fff}
+.btn-d{color:var(--red)}.btn-d:hover{border-color:var(--red)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:20px;margin-bottom:16px;box-shadow:0 1px 3px rgba(0,0,0,.04)}
+.ct{font-size:14px;font-weight:600;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px}
+.ctr{color:var(--accent);font-size:13px;font-weight:400}
+.metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:20px}
+.mc{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px;box-shadow:0 1px 3px rgba(0,0,0,.04)}
+.mc .label{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:4px}
+.mc .val{font-size:26px;font-weight:700;color:var(--accent)}
+.mc .msub{font-size:12px;color:var(--muted);margin-top:2px}
+.uz{border:2px dashed var(--border);border-radius:8px;padding:24px;text-align:center;cursor:pointer;margin-bottom:20px;transition:all .2s}
+.uz.over{border-color:var(--accent);background:rgba(91,99,211,.04)}
+.uz:hover{border-color:#bbb}
+.uz input{display:none}
+.uz b{color:var(--accent)}
+.tabs{display:flex;gap:4px;margin-bottom:16px;flex-wrap:wrap;border-bottom:1px solid var(--border);padding-bottom:8px}
+.tab{padding:6px 14px;border-radius:6px;cursor:pointer;font-size:13px;color:var(--muted);transition:all .15s;user-select:none}
+.tab:hover{color:var(--dim);background:rgba(91,99,211,.06)}
+.tab.on{background:var(--accent);color:#fff;font-weight:600}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:16px}
+@media(max-width:1100px){.g3{grid-template-columns:1fr 1fr}}
+@media(max-width:800px){.g2,.g3{grid-template-columns:1fr}}
+.nb{margin-bottom:10px}
+.nb-h{display:flex;justify-content:space-between;font-size:13px;margin-bottom:3px}
+.nb-t{height:7px;background:#eee;border-radius:4px;overflow:hidden}
+.nb-f{height:100%;border-radius:4px;transition:width .5s ease}
+.chip{display:inline-flex;align-items:center;gap:4px;font-size:12px;cursor:pointer;padding:4px 10px;border:1px solid var(--border);border-radius:4px;margin:2px;transition:all .15s;user-select:none}
+.chip:hover{border-color:var(--accent)}
+.chip.on{background:rgba(91,99,211,.08);border-color:var(--accent);color:var(--accent);font-weight:500}
+.chip.on::before{content:'✓ '}
+.cfg-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:4px 20px}
+.cfg-row{display:flex;align-items:center;gap:8px;margin-bottom:4px}
+.cfg-row span{font-size:12px;color:var(--muted);min-width:180px}
+.cfg-input{border:1px solid var(--border);border-radius:4px;padding:4px 8px;width:70px;font-size:12px;text-align:right;font-family:inherit}
+.cfg-input:focus{outline:none;border-color:var(--accent)}
+.empty{text-align:center;padding:60px 20px;color:var(--faint)}
+.footer{text-align:center;font-size:11px;color:var(--faint);padding:20px 0}
+.toast{position:fixed;bottom:24px;right:24px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px 18px;font-size:13px;z-index:100;box-shadow:0 4px 20px rgba(0,0,0,.1);transform:translateY(80px);opacity:0;transition:all .3s}
+.toast.show{transform:translateY(0);opacity:1}.toast.success{border-color:var(--green)}.toast.error{border-color:var(--red)}
+.step-num{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;background:var(--accent);color:#fff;font-size:12px;font-weight:700;margin-right:8px}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div class="toast" id="toast"></div>
+<script>
+// ============================================================
+// PARSER
+// ============================================================
+function colPos(sep){const p=[];let i_=false,s=0;for(let i=0;i<sep.length;i++){if(sep[i]==='='&&!i_){i_=true;s=i}else if(sep[i]!=='='&&i_){p.push([s,i]);i_=false}}if(i_)p.push([s,sep.length]);return p}
+function exVals(l,pos){return pos.map(([s,e])=>l.substring(s,Math.min(e,l.length)).trim())}
+function pNum(s){if(!s||s==='-'||s==='')return null;return parseFloat(s.replace(/,/g,''))}
+
+function parseFile(text){
+  const D={date:null,time:null,tables:{},bannerCols:[]};
+  const dm=text.match(/=== (\d{2}\/\d{2}) at (\d{2}:\d{2}) ===/);
+  if(dm){D.date=dm[1];D.time=dm[2]}
+  // Auto-detect banner columns
+  const allLines=text.split('\n');
+  let firstSepIdx=-1;
+  for(let i=0;i<Math.min(allLines.length,50);i++){
+    if(allLines[i].match(/^\s+=+\s+=+/)){firstSepIdx=i;break}
+  }
+  if(firstSepIdx>=0){
+    const testPos=colPos(allLines[firstSepIdx]);
+    if(testPos.length>=2){
+      const headerLines=[];
+      for(let i=firstSepIdx-1;i>=Math.max(0,firstSepIdx-5);i--){
+        const l=allLines[i];
+        if(l.trim()===''||l.match(/\(ref:/)||l.match(/^={5,}/)||l.match(/^Page:/))break;
+        headerLines.unshift(l);
+      }
+      D.bannerCols=testPos.map(([s,e])=>{
+        const parts=[];
+        for(const hl of headerLines){const chunk=hl.substring(s,Math.min(e,hl.length)).trim();if(chunk)parts.push(chunk)}
+        return parts.join(' ');
+      });
+      D.bannerCols=D.bannerCols.map(c=>{
+        let s=c;
+        s=s.replace(/Fem\s+ale/i,'Female');s=s.replace(/Har\s+ris/i,'Harris');
+        s=s.replace(/Mid-?\s+Atl/i,'Mid-Atl');s=s.replace(/Mid\s*west/i,'Midwest');
+        s=s.replace(/South\s+west/i,'Southwest');s=s.replace(/Other\s+reg/i,'Other reg');
+        s=s.replace(/Comp\s+CD/i,'Comp CD');s=s.replace(/East\s+Coast\s+MWest/i,'East Coast/MWest');
+        s=s.replace(/Total\s+unwt/i,'Total unwt');s=s.replace(/Split\s+A/i,'Split A');s=s.replace(/Split\s+B/i,'Split B');
+        s=s.replace(/2024\s+Did\s+not/i,'Did not vote');s=s.replace(/2024\s+Har\s*ris/i,'Harris');
+        s=s.replace(/2024\s+Pres\s+voted/i,'2024 Pres voted');s=s.replace(/2024\s+Trump/i,'Trump');
+        s=s.replace(/^2024\s+/,'');
+        if(s.match(/^Pres\s+voted$/i))s='2024 Pres voted';
+        if(s.match(/^Did\s+not$/i))s='Did not vote';
+        return s.trim();
+      });
+    }
+  }
+  // Parse all pages
+  const blocks=text.split(/={50,}\nPage: (\d+)/);
+  for(let i=1;i<blocks.length;i+=2){
+    const lines=blocks[i+1].split('\n');
+    let ref='';
+    for(const l of lines){const m=l.match(/\(ref:([^)]+)\)/);if(m){ref=m[1].trim();break}}
+    if(!ref)continue;
+    let cp=null,si=-1;
+    for(let j=0;j<lines.length;j++){if(lines[j].match(/^\s+=+\s+=+/)){cp=colPos(lines[j]);si=j;break}}
+    if(!cp||cp.length<2)continue;
+    const T={totalN:[],rows:{}};let ft=false,cl=null;
+    for(let j=si+1;j<lines.length;j++){
+      const l=lines[j];
+      if(l.trim()===''){cl=null;continue}
+      if(l.match(/Total answering/)){T.totalN=exVals(l,cp).map(v=>pNum(v));ft=true;if(j+1<lines.length&&lines[j+1].match(/^\s+100\.0/))j++;continue}
+      if(!ft)continue;
+      if(l.match(/^\s+[\d.]+/)){if(cl&&T.rows[cl]&&!T.rows[cl].pcts){T.rows[cl].pcts=exVals(l,cp).map(v=>pNum(v))}continue}
+      const lt=l.substring(0,cp[0][0]).trim();
+      if(!lt){if(cl){const c=l.trim().split(/\s{2,}/)[0];if(c&&!c.match(/^[\d.]+$/)){const nl=cl+' '+c;T.rows[nl]=T.rows[cl];delete T.rows[cl];cl=nl}}continue}
+      const vals=exVals(l,cp);
+      if(vals.length>=cp.length-1){
+        const fv=pNum(vals[0]);
+        if(cl&&fv!==null&&fv<101&&T.rows[cl]&&!T.rows[cl].pcts){
+          const merged=cl+' '+lt.replace(/\s+/g,' ').trim();
+          T.rows[merged]=T.rows[cl];delete T.rows[cl];
+          T.rows[merged].pcts=vals.map(v=>pNum(v));cl=merged;
+        }else{cl=lt.replace(/\s+/g,' ').trim();T.rows[cl]={ns:vals.map(v=>pNum(v))}}
+      }
+    }
+    if(D.tables[ref]){if((T.totalN[0]||0)>(D.tables[ref].totalN[0]||0))D.tables[ref]=T}else D.tables[ref]=T;
+  }
+  return D;
+}
+
+function buildData(parsed,bcols){
+  const m={date:parsed.date,time:parsed.time,totalN:0,bd:{},cols:bcols};
+  for(const[ref,T]of Object.entries(parsed.tables)){
+    m.bd[ref]={_tn:{}};
+    bcols.forEach((c,i)=>{m.bd[ref]._tn[c]=T.totalN[i]});
+    for(const[label,rd]of Object.entries(T.rows)){
+      m.bd[ref][label]={};
+      bcols.forEach((c,i)=>{m.bd[ref][label][c]={n:(rd.ns||[])[i],pct:(rd.pcts||[])[i]}});
+    }
+  }
+  // AGE fallback
+  if(m.bd['AGE 1']){
+    const a1N=m.bd['AGE 1']._tn?.[bcols[0]]||0;
+    const a2N=m.bd['AGE2']?._tn?.[bcols[0]]||0;
+    if(a2N<a1N*0.5){
+      const ageMap={'+18 - 29':'18-29','18 - 29':'18-29','30 - 39':'30-39','40 - 49':'40-49','50 - 64':'50-64','Over 64':'65 and over','65 and over':'65 and over'};
+      const newA={_tn:m.bd['AGE 1']._tn};
+      for(const[l,cd]of Object.entries(m.bd['AGE 1'])){if(l==='_tn')continue;const cl=l.replace(/^\+/,'').trim();const mp=ageMap[cl]||ageMap[l];if(mp)newA[mp]=cd}
+      m.bd.AGE2=newA;
+    }
+  }
+  // EDUCCOLL normalization
+  if(m.bd.EDUCCOLL){
+    const em={'Likely college grad':'College over 50','Not likely college grad':'College under 50'};
+    for(const[o,n]of Object.entries(em)){if(m.bd.EDUCCOLL[o]&&!m.bd.EDUCCOLL[n])m.bd.EDUCCOLL[n]=m.bd.EDUCCOLL[o]}
+  }
+  // COMPCONG fallback
+  if(m.bd.COMPCD&&!m.bd.COMPCONG)m.bd.COMPCONG=m.bd.COMPCD;
+  
+  const gt=parsed.tables['GENDER']||Object.values(parsed.tables).find(t=>t.totalN[0]>100);
+  if(gt)m.totalN=gt.totalN[0]||0;
+  return m;
+}
+
+// ============================================================
+// STATE
+// ============================================================
+let parsed=null, current=null, phase='upload'; // upload → setup → dashboard
+let bannerCols=[], allRefs={};
+let tab='overview', editing=false, editBc=null;
+
+// Setup config (user picks)
+let cfg={
+  regionRef:null,       // which ref for region display
+  trackedVars:[],       // [{ref, label, cats:[{name, target}]}]
+  bannerTabs:[],        // which banner cols to show as tabs
+  regionTargets:{},
+  stateTargets:{},
+  warnThresh:3, offThresh:5,
+  rollups:[],
+};
+
+// ============================================================
+// HELPERS
+// ============================================================
+function gv(d,ref,lab,bc,f){try{return d.bd[ref][lab][bc][f]}catch(e){return null}}
+function gvf(d,ref,lab,bc,f){const v=gv(d,ref,lab,bc,f);if(v!=null)return v;try{const px=lab.substring(0,15).toLowerCase();for(const[k,cd]of Object.entries(d.bd[ref])){if(k==='_tn')continue;if(k.toLowerCase().startsWith(px))return cd[bc]?.[f]??null}}catch(e){}return null}
+function gtn(d,ref,bc){try{return d.bd[ref]._tn[bc]}catch(e){return null}}
+function toast(m,t){const el=document.getElementById('toast');el.textContent=m;el.className='toast show '+t;setTimeout(()=>el.className='toast',3000)}
+
+function pctRow(label,actual,target){
+  const a=actual??null,r=a!=null?Math.round(a):null,diff=r!=null?r-target:null;
+  const ds=diff!=null?(diff>=0?'+'+diff:''+diff):'';
+  const offBy=diff!=null?Math.abs(diff):0;
+  const bg=offBy>cfg.offThresh?'rgba(220,38,38,.08)':(offBy>cfg.warnThresh?'rgba(217,119,6,.06)':'');
+  const dc=offBy>cfg.offThresh?'color:var(--red);font-weight:600':(offBy>cfg.warnThresh?'color:var(--amber);font-weight:600':'color:var(--muted)');
+  return `<tr style="background:${bg}">
+    <td style="padding:6px 10px;color:var(--dim)">${label}</td>
+    <td style="padding:6px 10px;text-align:right;color:var(--muted)">${target}%</td>
+    <td style="padding:6px 10px;text-align:right;font-weight:600">${a!=null?Math.round(a)+'%':'—'}</td>
+    <td style="padding:6px 10px;text-align:right;${dc}">${ds?ds+'pp':''}</td></tr>`;
+}
+function nBar(cur,tgt,label){
+  const pct=tgt>0?Math.min((cur/tgt)*100,100):0;
+  return `<div class="nb"><div class="nb-h"><span style="color:var(--dim)">${label}</span>
+    <span style="font-weight:600;color:${cur>=tgt?'var(--green)':'var(--text)'}">${cur.toLocaleString()} / ${tgt.toLocaleString()} (${pct.toFixed(0)}%)</span>
+  </div><div class="nb-t"><div class="nb-f" style="width:${pct}%;background:${cur>=tgt?'var(--green)':'var(--accent)'}"></div></div></div>`;
+}
+
+// ============================================================
+// RENDER: UPLOAD PHASE
+// ============================================================
+function renderUpload(){
+  return `<div class="header"><div><h1>Survey Fielding Quota Tracker</h1>
+    <div class="sub">Upload a topline .txt file to get started</div></div></div>
+  <div class="uz" id="dz" onclick="document.getElementById('fi').click()">
+    <input type="file" id="fi" accept=".txt" onchange="onFile(event)">
+    <div style="font-size:14px;color:var(--muted)"><b>Drop topline .txt here</b> or click to upload</div>
+    <div style="font-size:12px;color:var(--faint);margin-top:4px">Auto-detects all variables, categories, and banner columns</div>
+  </div>
+  <div class="empty"><div style="font-size:40px;margin-bottom:12px">📊</div>
+    <div style="font-size:16px">Upload a topline to configure your quota tracker</div></div>`;
+}
+
+// ============================================================
+// RENDER: SETUP PHASE
+// ============================================================
+function renderSetup(){
+  const refs=Object.keys(parsed.tables).sort();
+  const regionRefs=refs.filter(r=>['QTGROUP','QTGROUP 1','DIALREG','REGION','COMPCD','COMPCONG'].some(rr=>r===rr));
+  const varRefs=refs.filter(r=>!regionRefs.includes(r));
+
+  let h=`<div class="header"><div><h1>Configure Quota Tracker</h1>
+    <div class="sub">${parsed.date} at ${parsed.time} · ${Object.keys(parsed.tables).length} variables detected · ${bannerCols.length} banner columns</div>
+  </div><div class="actions">
+    <button class="btn btn-p" onclick="finishSetup()">Launch Dashboard →</button>
+    <button class="btn btn-d" onclick="resetAll()">Start Over</button>
+  </div></div>`;
+
+  // Step 1: Pick banner columns for tabs
+  h+=`<div class="card"><h2><span class="step-num">1</span> Banner Columns (tabs)</h2>
+    <div style="font-size:13px;color:var(--muted);margin-bottom:10px">Select which banner columns to show as tabs. "Total" is always included as "All Sample".</div>
+    <div style="display:flex;flex-wrap:wrap;gap:0">`;
+  for(const bc of bannerCols){
+    if(bc===bannerCols[0])continue; // Total is always included
+    const on=cfg.bannerTabs.includes(bc);
+    h+=`<div class="chip ${on?'on':''}" onclick="toggleBannerTab('${bc}')">${bc}</div>`;
+  }
+  h+=`</div></div>`;
+
+  // Step 2: Pick region variable
+  h+=`<div class="card"><h2><span class="step-num">2</span> Region Variable</h2>
+    <div style="font-size:13px;color:var(--muted);margin-bottom:10px">Which variable tracks your geographic regions?</div>
+    <div style="display:flex;flex-wrap:wrap;gap:0">`;
+  for(const rr of regionRefs){
+    const cats=Object.keys(parsed.tables[rr].rows);
+    const on=cfg.regionRef===rr;
+    h+=`<div class="chip ${on?'on':''}" onclick="cfg.regionRef=${on?'null':("'"+rr+"'")};render()">${rr} <span style="color:var(--faint);font-size:11px">(${cats.length} categories)</span></div>`;
+  }
+  h+=`<div class="chip ${!cfg.regionRef?'on':''}" onclick="cfg.regionRef=null;render()">None</div>`;
+  h+=`</div>`;
+  // Show region categories if selected
+  if(cfg.regionRef&&parsed.tables[cfg.regionRef]){
+    const cats=Object.keys(parsed.tables[cfg.regionRef].rows);
+    h+=`<div style="margin-top:10px;padding:10px;background:var(--bg);border-radius:6px;font-size:12px;color:var(--muted)">
+      <strong>Categories:</strong> ${cats.join(', ')}</div>`;
+  }
+  h+=`</div>`;
+
+  // Step 3: Pick quota variables + categories
+  h+=`<div class="card"><h2><span class="step-num">3</span> Quota Variables</h2>
+    <div style="font-size:13px;color:var(--muted);margin-bottom:12px">Select variables to track. Click a variable to expand and pick categories. Targets default to 0 (set them after launching).</div>`;
+  
+  for(const ref of varRefs){
+    const T=parsed.tables[ref];
+    const cats=Object.keys(T.rows);
+    if(cats.length===0)continue;
+    const tracked=cfg.trackedVars.find(v=>v.ref===ref);
+    const isOn=!!tracked;
+    const n=T.totalN[0]||0;
+    
+    h+=`<div style="border:1px solid ${isOn?'var(--accent)':'var(--border)'};border-radius:6px;margin-bottom:8px;overflow:hidden">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;cursor:pointer;background:${isOn?'rgba(91,99,211,.04)':'transparent'}" onclick="toggleVar('${ref}')">
+        <div><strong style="color:${isOn?'var(--accent)':'var(--text)'}">${ref}</strong>
+          <span style="font-size:12px;color:var(--muted);margin-left:8px">${cats.length} categories · n=${n.toLocaleString()}</span></div>
+        <span style="font-size:12px;color:${isOn?'var(--accent)':'var(--faint)'}">${isOn?'✓ Tracking':'Click to add'}</span>
+      </div>`;
+    
+    if(isOn){
+      h+=`<div style="padding:8px 12px;border-top:1px solid var(--border);background:var(--bg)">
+        <div style="font-size:11px;color:var(--muted);margin-bottom:6px">Pick categories to track:</div>
+        <div style="display:flex;flex-wrap:wrap;gap:0">`;
+      for(const cat of cats){
+        const catOn=tracked.cats.some(c=>c.name===cat);
+        h+=`<div class="chip ${catOn?'on':''}" onclick="toggleCat('${ref}','${cat.replace(/'/g,"\\'")}')">${cat}</div>`;
+      }
+      h+=`</div></div>`;
+    }
+    h+=`</div>`;
+  }
+  h+=`</div>`;
+
+  // Summary
+  const nVars=cfg.trackedVars.filter(v=>v.cats.length>0).length;
+  const nCats=cfg.trackedVars.reduce((s,v)=>s+v.cats.length,0);
+  h+=`<div style="text-align:center;padding:16px">
+    <div style="font-size:13px;color:var(--muted);margin-bottom:8px">Tracking ${nVars} variables, ${nCats} categories, ${cfg.bannerTabs.length+1} tabs${cfg.regionRef?' · Region: '+cfg.regionRef:''}</div>
+    <button class="btn btn-p" onclick="finishSetup()" style="font-size:15px;padding:10px 24px">Launch Dashboard →</button>
+  </div>`;
+
+  return h;
+}
+
+// ============================================================
+// RENDER: DASHBOARD
+// ============================================================
+function renderQG(bc,label){
+  if(!current)return '';
+  const firstRef=cfg.trackedVars[0]?.ref;
+  const tn=firstRef?gtn(current,firstRef,bc):null;
+  let h=`<div class="ct"><span>${label||bc}</span><span class="ctr">Banner: ${bc} ${tn?'(n='+tn.toLocaleString()+')':''}</span></div>`;
+  h+=`<table style="width:100%;border-collapse:collapse;font-size:13px">
+  <thead><tr style="border-bottom:1px solid var(--border)">
+    <th style="padding:6px 10px;text-align:left;font-size:11px;font-weight:500;color:var(--faint)">Category</th>
+    <th style="padding:6px 10px;text-align:right;font-size:11px;font-weight:500;color:var(--faint)">Target</th>
+    <th style="padding:6px 10px;text-align:right;font-size:11px;font-weight:500;color:var(--faint)">Actual</th>
+    <th style="padding:6px 10px;text-align:right;font-size:11px;font-weight:500;color:var(--faint)">Diff</th>
+  </tr></thead>`;
+
+  for(const tv of cfg.trackedVars){
+    if(!tv.cats.length)continue;
+    h+=`<tr><td colspan="4" style="padding:10px 10px 4px;font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--border)">${tv.label||tv.ref}</td></tr>`;
+    for(const cat of tv.cats){
+      const tgt=cat.targets[bc]||0;
+      const actual=gvf(current,tv.ref,cat.name,bc,'pct');
+      if(tgt===0){
+        // No target — show actual only, no diff
+        h+=`<tr><td style="padding:6px 10px;color:var(--dim)">${cat.name}</td>
+          <td style="padding:6px 10px;text-align:right;color:var(--faint)">—</td>
+          <td style="padding:6px 10px;text-align:right;font-weight:600">${actual!=null?Math.round(actual)+'%':'—'}</td>
+          <td style="padding:6px 10px"></td></tr>`;
+      } else {
+        h+=pctRow(cat.name,actual,tgt);
+      }
+    }
+    // Harris 2-way
+    if(tv.ref==='PRESVOT3'){
+      const hP=gvf(current,'PRESVOT3','Kamala Harris',bc,'pct'),tP=gvf(current,'PRESVOT3','Donald Trump',bc,'pct');
+      const hT=getTarget(tv,'Kamala Harris',bc),tT=getTarget(tv,'Donald Trump',bc);
+      if(hP!=null&&tP!=null&&(hP+tP)>0){
+        const a2=(hP/(hP+tP))*100;
+        if((hT+tT)>0){const t2=(hT/(hT+tT))*100;h+=pctRow('Harris 2-way',a2,Math.round(t2))}
+        else h+=`<tr><td style="padding:6px 10px;color:var(--dim)">Harris 2-way</td><td style="padding:6px 10px;text-align:right;color:var(--faint)">—</td><td style="padding:6px 10px;text-align:right;font-weight:600">${Math.round(a2)}%</td><td></td></tr>`;
+      }
+    }
+    // Rollups
+    const refRollups=cfg.rollups.filter(r=>r.ref===tv.ref&&r.target>0);
+    for(const ru of refRollups){
+      let sumPct=0,valid=true;
+      for(const cat of ru.cats){const p=gvf(current,tv.ref,cat,bc,'pct');if(p!=null)sumPct+=p;else valid=false}
+      h+=pctRow('└ '+ru.label,valid?sumPct:null,ru.target);
+    }
+  }
+  h+=`</table>`;
+  return h;
+}
+
+function renderDashboard(){
+  const tN=current?.totalN||0;
+  let h=`<div class="header"><div><h1>Survey Fielding Quota Tracker</h1>
+    <div class="sub">${current.nightLabel} · ${current.date} at ${current.time} · ${tN.toLocaleString()} interviews</div>
+  </div><div class="actions">
+    <button class="btn ${editing?'btn-on':''}" onclick="editing=!editing;render()">${editing?'Done':'Edit Targets'}</button>
+    <button class="btn" onclick="document.getElementById('tfi').click()">Import Targets</button>
+    <input type="file" id="tfi" accept=".csv" style="display:none" onchange="if(this.files[0])importTargets(this.files[0]);this.value=''">
+    <button class="btn" onclick="exportTargets()">Export Targets</button>
+    <button class="btn" onclick="exportData()">Export Data</button>
+    <button class="btn" onclick="phase='setup';render()">Reconfigure</button>
+    <button class="btn btn-d" onclick="resetAll()">Clear</button>
+  </div></div>`;
+
+  // Upload zone for new file
+  h+=`<div class="uz" id="dz" onclick="document.getElementById('fi2').click()" style="padding:14px">
+    <input type="file" id="fi2" accept=".txt" onchange="onReupload(event)">
+    <div style="font-size:13px;color:var(--muted)"><b>Drop new topline</b> to update data (keeps your targets)</div>
+  </div>`;
+
+  if(editing) return h+renderEditPanel();
+
+  // Metrics
+  h+=`<div class="metrics">
+    <div class="mc"><div class="label">Total N</div><div class="val">${tN.toLocaleString()}</div><div class="msub">${current.nightLabel}</div></div>
+  </div>`;
+
+  // Tabs
+  const tabList=[{id:'overview',l:'Overview'},{id:bannerCols[0],l:'All Sample'}];
+  for(const bc of cfg.bannerTabs)tabList.push({id:bc,l:bc});
+  h+=`<div class="tabs">${tabList.map(t=>`<div class="tab ${tab===t.id?'on':''}" onclick="setTab('${t.id}')">${t.l}</div>`).join('')}</div>`;
+
+  if(tab==='overview'){
+    h+=`<div class="g2"><div class="card">
+      <div class="ct"><span>Overall Progress</span><span class="ctr">${tN.toLocaleString()} interviews</span></div>`;
+    // Regions
+    const regRef=cfg.regionRef;
+    const regData=regRef?current.bd[regRef]:null;
+    if(regData){
+      const regionLabels=Object.keys(regData).filter(l=>l!=='_tn');
+      const rollupMap={};
+      const statePatterns=[
+        {key:'CA',patterns:['ca','california']},{key:'FL',patterns:['fl','florida']},
+        {key:'TX',patterns:['tx','texas']},{key:'Mid-Atl',patterns:['midat','mid-atl','mid-atlantic']},
+        {key:'Midwest',patterns:['mdwst','midwest']},{key:'Southwest',patterns:['sw','southwest']},
+        {key:'Other',patterns:['other']},
+      ];
+      const assigned=new Set();
+      for(const sp of statePatterns){
+        const matches=regionLabels.filter(l=>sp.patterns.some(p=>l.toLowerCase().includes(p)));
+        if(matches.length>0){rollupMap[sp.key]=matches;matches.forEach(m=>assigned.add(m))}
+      }
+      for(const l of regionLabels){if(!assigned.has(l))rollupMap[l]=[l]}
+
+      h+=`<div style="font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">Regions (${regRef})</div>`;
+      for(const[state,labels]of Object.entries(rollupMap)){
+        const totalN=labels.reduce((s,l)=>(regData[l]?.[bannerCols[0]]?.n||0)+s,0);
+        const totalIndivTgt=labels.reduce((s,l)=>(cfg.regionTargets[l]||0)+s,0);
+        if(!(state in cfg.stateTargets))cfg.stateTargets[state]=0;
+        const stateTgt=cfg.stateTargets[state]||0;
+        const effTgt=stateTgt>0?stateTgt:(totalIndivTgt>0?totalIndivTgt:0);
+        if(labels.length>1){
+          if(effTgt>0)h+=nBar(totalN,effTgt,'Total '+state);
+          else h+=`<div style="font-size:14px;font-weight:600;padding:6px 0">Total ${state}: <strong>${totalN}</strong></div>`;
+          if(totalIndivTgt>0){
+            for(const l of labels){const n=regData[l]?.[bannerCols[0]]?.n||0;const tgt=cfg.regionTargets[l]||0;
+              if(tgt>0)h+=`<div style="padding-left:16px">${nBar(n,tgt,l)}</div>`;
+              else h+=`<div style="font-size:12px;color:var(--muted);padding:2px 0 2px 16px">${l}: <strong>${n}</strong></div>`}
+          } else if(stateTgt===0){
+            for(const l of labels)h+=`<div style="font-size:12px;color:var(--muted);padding:2px 0 2px 16px">${l}: <strong>${regData[l]?.[bannerCols[0]]?.n||0}</strong></div>`;
+          }
+        } else {
+          const l=labels[0],n=regData[l]?.[bannerCols[0]]?.n||0,tgt=cfg.regionTargets[l]||0;
+          if(tgt>0)h+=nBar(n,tgt,l);
+          else h+=`<div style="font-size:13px;color:var(--dim);padding:4px 0">${l}: <strong>${n}</strong></div>`;
+        }
+      }
+    }
+    h+=`</div><div class="card"><div class="ct">Quick Quota Check</div>${renderQG(bannerCols[0],'All Sample')}</div></div>`;
+  } else {
+    h+=`<div class="card">${renderQG(tab,tab===bannerCols[0]?'All Sample':tab)}</div>`;
+  }
+  return h;
+}
+
+// ============================================================
+// EDIT PANEL
+// ============================================================
+function renderEditPanel(){
+  let h='';
+  const allBcs=[bannerCols[0],...cfg.bannerTabs];
+  if(!editBc||!allBcs.includes(editBc))editBc=allBcs[0];
+
+  // Thresholds
+  h+=`<div class="card"><div class="ct">Alert Thresholds</div>
+    <div style="display:flex;gap:24px;flex-wrap:wrap">
+      <div class="cfg-row"><span style="color:var(--amber)">Warning (pp)</span>
+        <input class="cfg-input" type="number" value="${cfg.warnThresh}" onchange="cfg.warnThresh=parseInt(this.value)||0;render()"></div>
+      <div class="cfg-row"><span style="color:var(--red)">Off target (pp)</span>
+        <input class="cfg-input" type="number" value="${cfg.offThresh}" onchange="cfg.offThresh=parseInt(this.value)||0;render()"></div>
+    </div></div>`;
+
+  // Quota targets — tab per banner column
+  h+=`<div class="card"><div class="ct">Quota Targets</div>
+    <div class="tabs" style="margin-bottom:12px">
+      ${allBcs.map(bc=>`<div class="tab ${editBc===bc?'on':''}" onclick="editBc='${bc}';render()">${bc===bannerCols[0]?'All Sample':bc}</div>`).join('')}
+      <div style="flex:1"></div>
+      <button class="btn" onclick="copyTargetsFrom()" style="font-size:11px;padding:3px 10px" title="Copy targets from another column">Copy from...</button>
+      <button class="btn" onclick="showPaste()" style="font-size:11px;padding:3px 10px" title="Paste targets from Excel">Paste from Excel</button>
+    </div>
+    <div id="pasteArea" style="display:none;margin-bottom:12px;padding:12px;background:var(--bg);border-radius:6px;border:1px solid var(--border)">
+      <div style="font-size:13px;font-weight:600;margin-bottom:6px">Paste from Excel</div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:8px">Copy a column of targets from Excel (in the same order as categories below), or two columns (Category + Target). Then paste here.</div>
+      <textarea id="pasteInput" rows="8" style="width:100%;border:1px solid var(--border);border-radius:4px;padding:8px;font-size:13px;font-family:inherit;resize:vertical" placeholder="Paste here from Excel..."></textarea>
+      <div style="margin-top:8px;display:flex;gap:8px">
+        <button class="btn btn-p" onclick="applyPaste()">Apply</button>
+        <button class="btn" onclick="document.getElementById('pasteArea').style.display='none'">Cancel</button>
+      </div>
+    </div>
+    <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px">
+    <thead><tr style="background:var(--bg);position:sticky;top:0">
+      <th style="padding:8px 12px;text-align:left;border:1px solid var(--border);font-weight:600;width:140px">Variable</th>
+      <th style="padding:8px 12px;text-align:left;border:1px solid var(--border);font-weight:600">Category</th>
+      <th style="padding:8px 12px;text-align:right;border:1px solid var(--border);font-weight:600;width:90px">Current %</th>
+      <th style="padding:8px 12px;text-align:center;border:1px solid var(--border);font-weight:600;width:100px">Target %</th>
+    </tr></thead><tbody>`;
+
+  for(const tv of cfg.trackedVars){
+    const varLabel=tv.label||tv.ref;
+    for(let ci=0;ci<tv.cats.length;ci++){
+      const cat=tv.cats[ci];
+      const esc=cat.name.replace(/'/g,"\\'");
+      const actual=current?gvf(current,tv.ref,cat.name,editBc,'pct'):null;
+      const tgt=cat.targets[editBc]||0;
+      const isFirst=ci===0;
+      h+=`<tr style="border-bottom:1px solid var(--border)">
+        <td style="padding:6px 12px;border-left:1px solid var(--border);border-right:1px solid var(--border);font-weight:${isFirst?'600':'400'};color:${isFirst?'var(--accent)':'var(--faint)'};vertical-align:top">${isFirst?varLabel:''}</td>
+        <td style="padding:6px 12px;border-right:1px solid var(--border);color:var(--dim)">${cat.name}</td>
+        <td style="padding:6px 12px;border-right:1px solid var(--border);text-align:right;color:var(--muted)">${actual!=null?Math.round(actual)+'%':'—'}</td>
+        <td style="padding:2px 4px;border-right:1px solid var(--border);text-align:center">
+          <input type="number" step="0.1" value="${tgt}" onchange="setTarget('${tv.ref}','${esc}','${editBc}',parseFloat(this.value)||0);render()"
+            style="width:100%;border:1px solid var(--border);border-radius:3px;padding:5px 8px;font-size:13px;text-align:right;font-family:inherit;background:${tgt>0?'#fff':'var(--bg)'}">
+        </td></tr>`;
+    }
+  }
+  h+=`</tbody></table></div></div>`;
+
+  // Region N targets
+  if(Object.keys(cfg.regionTargets).length>0||Object.keys(cfg.stateTargets).length>0){
+    h+=`<div class="card"><div class="ct">Region N Targets</div>
+      <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px">
+      <thead><tr style="background:var(--bg)">
+        <th style="padding:8px 12px;text-align:left;border:1px solid var(--border);font-weight:600">Type</th>
+        <th style="padding:8px 12px;text-align:left;border:1px solid var(--border);font-weight:600">Region</th>
+        <th style="padding:8px 12px;text-align:right;border:1px solid var(--border);font-weight:600;width:90px">Current N</th>
+        <th style="padding:8px 12px;text-align:center;border:1px solid var(--border);font-weight:600;width:100px">Target N</th>
+      </tr></thead><tbody>`;
+    for(const[s,n]of Object.entries(cfg.stateTargets)){
+      const esc=s.replace(/'/g,"\\'");
+      let curN=0;const rd=cfg.regionRef?current?.bd[cfg.regionRef]:null;
+      if(rd){for(const[l,cd]of Object.entries(rd)){if(l==='_tn')continue;if(l.toLowerCase().includes(s.toLowerCase().substring(0,2)))curN+=(cd[bannerCols[0]]?.n||0)}}
+      h+=`<tr style="border-bottom:1px solid var(--border);background:rgba(91,99,211,.02)">
+        <td style="padding:6px 12px;border:1px solid var(--border);font-weight:600;color:var(--accent)">State Total</td>
+        <td style="padding:6px 12px;border:1px solid var(--border);color:var(--dim)">${s}</td>
+        <td style="padding:6px 12px;border:1px solid var(--border);text-align:right;color:var(--muted)">${curN||''}</td>
+        <td style="padding:2px 4px;border:1px solid var(--border)"><input type="number" value="${n}" onchange="cfg.stateTargets['${esc}']=parseInt(this.value)||0;render()"
+          style="width:100%;border:1px solid var(--border);border-radius:3px;padding:5px 8px;font-size:13px;text-align:right;font-family:inherit;background:${n>0?'#fff':'var(--bg)'}"></td></tr>`;
+    }
+    for(const[l,n]of Object.entries(cfg.regionTargets)){
+      const esc=l.replace(/'/g,"\\'");
+      const curN=(cfg.regionRef?current?.bd[cfg.regionRef]?.[l]?.[bannerCols[0]]?.n:null)||0;
+      h+=`<tr style="border-bottom:1px solid var(--border)">
+        <td style="padding:6px 12px;border:1px solid var(--border);color:var(--faint)">Region</td>
+        <td style="padding:6px 12px;border:1px solid var(--border);color:var(--dim)">${l}</td>
+        <td style="padding:6px 12px;border:1px solid var(--border);text-align:right;color:var(--muted)">${curN||''}</td>
+        <td style="padding:2px 4px;border:1px solid var(--border)"><input type="number" value="${n}" onchange="cfg.regionTargets['${esc}']=parseInt(this.value)||0;render()"
+          style="width:100%;border:1px solid var(--border);border-radius:3px;padding:5px 8px;font-size:13px;text-align:right;font-family:inherit;background:${n>0?'#fff':'var(--bg)'}"></td></tr>`;
+    }
+    h+=`</tbody></table></div></div>`;
+  }
+
+  // Rollups
+  h+=`<div class="card"><div class="ct">Custom Rollups <button class="btn" onclick="addRollup()" style="font-size:11px;padding:3px 10px;margin-left:8px">+ Add</button></div>`;
+  if(cfg.rollups.length===0)h+=`<div style="font-size:13px;color:var(--faint);padding:8px 0">No rollups. Click + Add to combine categories.</div>`;
+  for(let ri=0;ri<cfg.rollups.length;ri++){
+    const ru=cfg.rollups[ri];
+    const tv=cfg.trackedVars.find(v=>v.ref===ru.ref);
+    const availCats=tv?tv.cats.map(c=>c.name):(current?.bd[ru.ref]?Object.keys(current.bd[ru.ref]).filter(k=>k!=='_tn'):[]);
+    h+=`<div style="margin-bottom:10px;padding:10px;background:var(--bg);border-radius:6px">
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px;flex-wrap:wrap">
+        <input class="cfg-input" style="width:120px;text-align:left" value="${ru.label}" onchange="cfg.rollups[${ri}].label=this.value;render()" placeholder="Label">
+        <select style="border:1px solid var(--border);border-radius:4px;padding:4px 8px;font-size:12px;font-family:inherit" onchange="cfg.rollups[${ri}].ref=this.value;cfg.rollups[${ri}].cats=[];render()">
+          ${cfg.trackedVars.map(v=>`<option value="${v.ref}"${v.ref===ru.ref?' selected':''}>${v.label||v.ref}</option>`).join('')}
+        </select>
+        <input class="cfg-input" type="number" step="0.1" value="${ru.target}" onchange="cfg.rollups[${ri}].target=parseFloat(this.value)||0;render()" placeholder="tgt %"> %
+        <button onclick="cfg.rollups.splice(${ri},1);render()" style="background:none;border:1px solid var(--border);border-radius:4px;padding:2px 8px;cursor:pointer;color:var(--red);font-size:12px">✕</button>
+      </div>
+      <div style="display:flex;gap:4px;flex-wrap:wrap">${availCats.map(cat=>{
+        const esc=cat.replace(/'/g,"\\'");const on=ru.cats.includes(cat);
+        return `<div class="chip ${on?'on':''}" onclick="toggleRollupCat(${ri},'${esc}')">${cat}</div>`;
+      }).join('')}</div></div>`;
+  }
+  h+=`</div>`;
+  return h;
+}
+
+// ============================================================
+// EXPORTS
+// ============================================================
+function dlCSV(rows,fn){const csv=rows.map(r=>r.map(c=>String(c).includes(',')?'"'+c+'"':c).join(',')).join('\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download=fn;a.click()}
+
+function exportTargets(){
+  const rows=[['Banner Column','Variable','Category','Target %']];
+  for(const[s,n]of Object.entries(cfg.stateTargets))if(n>0)rows.push(['N Targets','State Total',s,n]);
+  for(const[l,n]of Object.entries(cfg.regionTargets))rows.push(['N Targets','Region',l,n]);
+  const allBcs=[bannerCols[0],...cfg.bannerTabs];
+  for(const bc of allBcs){
+    const bcLabel=bc===bannerCols[0]?'All Sample':bc;
+    for(const tv of cfg.trackedVars){
+      for(const cat of tv.cats){
+        const tgt=cat.targets[bc]||0;
+        rows.push([bcLabel,tv.label||tv.ref,cat.name,tgt]);
+      }
+      if(tv.ref==='PRESVOT3'){
+        const hT=getTarget(tv,'Kamala Harris',bc),tT=getTarget(tv,'Donald Trump',bc);
+        if((hT+tT)>0)rows.push([bcLabel,'Vote Recall 2-way','Harris 2-way',((hT/(hT+tT))*100).toFixed(1)]);
+      }
+    }
+    for(const ru of cfg.rollups){if(ru.target>0)rows.push([bcLabel,'Rollup: '+ru.label,ru.cats.join(' + '),ru.target])}
+  }
+  dlCSV(rows,'quota-targets.csv');toast('Exported targets','success');
+}
+
+function exportData(){
+  if(!current)return;
+  const rows=[];
+  const allBcs=[bannerCols[0],...cfg.bannerTabs];
+  for(const bc of allBcs){
+    for(const tv of cfg.trackedVars){
+      for(const cat of tv.cats){
+        const tgt=cat.targets[bc]||0;
+        if(tgt===0)continue;
+        const actual=gvf(current,tv.ref,cat.name,bc,'pct');
+        const n=gvf(current,tv.ref,cat.name,bc,'n');
+        rows.push({bc:bc===bannerCols[0]?'All Sample':bc,variable:tv.label||tv.ref,cat:cat.name,n:n||'',actual:actual!=null?actual.toFixed(1):'',target:tgt,diff:actual!=null?Math.round(actual)-tgt:''});
+      }
+      if(tv.ref==='PRESVOT3'){
+        const hP=gvf(current,'PRESVOT3','Kamala Harris',bc,'pct'),tP=gvf(current,'PRESVOT3','Donald Trump',bc,'pct');
+        const hT=getTarget(tv,'Kamala Harris',bc),tT=getTarget(tv,'Donald Trump',bc);
+        if(hP!=null&&tP!=null&&(hP+tP)>0&&(hT+tT)>0){
+          const a2=(hP/(hP+tP))*100,t2=(hT/(hT+tT))*100;
+          rows.push({bc:bc===bannerCols[0]?'All Sample':bc,variable:'Vote Recall 2-way',cat:'Harris 2-way',n:'',actual:a2.toFixed(1),target:t2.toFixed(1),diff:Math.round(a2)-Math.round(t2)});
+        }
+      }
+      const refRollups=cfg.rollups.filter(r=>r.ref===tv.ref&&r.target>0);
+      for(const ru of refRollups){
+        let sp=0,v=true;for(const c of ru.cats){const p=gvf(current,tv.ref,c,bc,'pct');if(p!=null)sp+=p;else v=false}
+        rows.push({bc:bc===bannerCols[0]?'All Sample':bc,variable:(tv.label||tv.ref)+' (rollup)',cat:ru.label,n:'',actual:v?sp.toFixed(1):'',target:ru.target,diff:v?Math.round(sp)-ru.target:''});
+      }
+    }
+  }
+  // Build HTML table for Excel
+  let html=`<html xmlns:o="urn:schemas-microsoft-com:office:office"><head><meta charset="utf-8"><style>
+  table{border-collapse:collapse;font-family:Calibri;font-size:11pt}th{background:#f0f0f5;font-weight:bold;border:1px solid #ccc;padding:6px 10px;text-align:left}
+  td{border:1px solid #ddd;padding:5px 10px}.warn{background:#fff3cd}.off{background:#ffe0e0;font-weight:bold}.r{text-align:right}
+  </style></head><body><table><tr><th>Banner</th><th>Variable</th><th>Category</th><th>N</th><th>Actual %</th><th>Target %</th><th>Diff (pp)</th><th>Status</th></tr>`;
+  for(const r of rows){
+    const d=typeof r.diff==='number'?Math.abs(r.diff):99;
+    const cls=d>cfg.offThresh?'off':(d>cfg.warnThresh?'warn':'');
+    const status=d>cfg.offThresh?'Off target':(d>cfg.warnThresh?'Warning':'On track');
+    html+=`<tr class="${cls}"><td>${r.bc}</td><td>${r.variable}</td><td>${r.cat}</td><td class="r">${r.n}</td><td class="r">${r.actual}</td><td class="r">${r.target}</td><td class="r">${r.diff}</td><td>${status}</td></tr>`;
+  }
+  html+=`</table></body></html>`;
+  const label=current.nightLabel||'data';
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([html],{type:'application/vnd.ms-excel'}));
+  a.download='quota-check-'+label.replace(/\s+/g,'_')+'.xls';a.click();
+  toast('Exported Excel','success');
+}
+
+function importTargets(file){
+  const reader=new FileReader();
+  reader.onload=function(e){
+    const lines=e.target.result.trim().split('\n');
+    if(lines.length<2)return;
+    const header=lines[0].split(',').map(s=>s.replace(/"/g,'').trim().toLowerCase());
+    const bi=header.indexOf('banner column'),vi=header.indexOf('variable'),ci=header.indexOf('category'),ti=header.indexOf('target %');
+    if(ti===-1){toast('Need "Target %" column','error');return}
+    let imported=0;
+    for(let i=1;i<lines.length;i++){
+      const row=[];let cur='',inQ=false;
+      for(const ch of lines[i]){if(ch==='"')inQ=!inQ;else if(ch===','&&!inQ){row.push(cur.trim());cur=''}else cur+=ch}row.push(cur.trim());
+      const bc=row[bi]||'',variable=row[vi]||'',category=row[ci]||'',target=parseFloat(row[ti])||0;
+      if(bc.toLowerCase()==='n targets'){
+        if(variable.toLowerCase()==='state total'&&category in cfg.stateTargets){cfg.stateTargets[category]=target;imported++}
+        else if(category in cfg.regionTargets){cfg.regionTargets[category]=target;imported++}
+        continue;
+      }
+      for(const tv of cfg.trackedVars){
+        if((tv.label||tv.ref).toLowerCase()===variable.toLowerCase()){
+          const cat=tv.cats.find(c=>c.name===category);
+          if(cat){
+            // Map banner column label back
+            const mappedBc=bc.toLowerCase()==='all sample'?bannerCols[0]:bannerCols.find(b=>b===bc)||bc;
+            cat.targets[mappedBc]=target;imported++;
+          }
+          break;
+        }
+      }
+    }
+    render();toast('Imported '+imported+' targets','success');
+  };reader.readAsText(file);
+}
+
+// ============================================================
+// HANDLERS
+// ============================================================
+function onFile(e){
+  const f=e.target.files[0];if(!f)return;e.target.value='';
+  const reader=new FileReader();
+  reader.onload=function(ev){
+    parsed=parseFile(ev.target.result);
+    bannerCols=parsed.bannerCols;
+    // Auto-select likely banner tabs (geos, not splits/phone/unwt)
+    const skipWords=['total','unwt','split','phone','sms'];
+    cfg.bannerTabs=bannerCols.filter((bc,i)=>i>0&&!skipWords.some(w=>bc.toLowerCase().includes(w)));
+    // Auto-detect region ref
+    const regionCandidates=['QTGROUP 1','QTGROUP','DIALREG','REGION'];
+    cfg.regionRef=regionCandidates.find(r=>parsed.tables[r])||null;
+    // Populate region targets
+    cfg.regionTargets={};cfg.stateTargets={};
+    if(cfg.regionRef&&parsed.tables[cfg.regionRef]){
+      for(const l of Object.keys(parsed.tables[cfg.regionRef].rows))cfg.regionTargets[l]=0;
+    }
+    phase='setup';render();
+    toast('Parsed '+Object.keys(parsed.tables).length+' variables','success');
+  };reader.readAsText(f);
+}
+
+function onReupload(e){
+  const f=e.target.files[0];if(!f)return;e.target.value='';
+  const reader=new FileReader();
+  reader.onload=function(ev){
+    parsed=parseFile(ev.target.result);
+    bannerCols=parsed.bannerCols;
+    current=buildData(parsed,bannerCols);
+    const nm=f.name.match(/NIGHT[_\s]*(\d+)/i);
+    current.nightLabel=nm?'Night '+nm[1]:f.name.replace('.txt','');
+    render();
+    toast('Updated: '+current.nightLabel+' · '+current.totalN.toLocaleString()+' interviews','success');
+  };reader.readAsText(f);
+}
+
+function finishSetup(){
+  current=buildData(parsed,bannerCols);
+  const nm='Night';
+  current.nightLabel=parsed.date||nm;
+  phase='dashboard';tab='overview';editing=false;render();
+}
+
+function resetAll(){parsed=null;current=null;phase='upload';bannerCols=[];editBc=null;
+  cfg={regionRef:null,trackedVars:[],bannerTabs:[],regionTargets:{},stateTargets:{},warnThresh:3,offThresh:5,rollups:[]};
+  render();
+}
+
+function toggleBannerTab(bc){
+  const idx=cfg.bannerTabs.indexOf(bc);
+  if(idx>=0){cfg.bannerTabs.splice(idx,1)}
+  else{
+    cfg.bannerTabs.push(bc);
+    // Auto-set Spanish 10% for new tab
+    const langVar=cfg.trackedVars.find(v=>v.ref==='LANG');
+    if(langVar){const sc=langVar.cats.find(c=>c.name==='Spanish');if(sc&&!sc.targets[bc])sc.targets[bc]=10}
+  }
+  render();
+}
+
+function toggleVar(ref){
+  const idx=cfg.trackedVars.findIndex(v=>v.ref===ref);
+  if(idx>=0){cfg.trackedVars.splice(idx,1)}
+  else{
+    const T=parsed.tables[ref];
+    const cats=Object.keys(T.rows).map(name=>({name,targets:{}}));
+    cfg.trackedVars.push({ref,label:ref,cats});
+    // Auto-set Spanish to 10% for all banner columns
+    if(ref==='LANG'){
+      const allBcs=[bannerCols[0],...cfg.bannerTabs];
+      const spanCat=cats.find(c=>c.name==='Spanish');
+      if(spanCat){for(const bc of allBcs)spanCat.targets[bc]=10}
+    }
+  }
+  render();
+}
+
+function toggleCat(ref,catName){
+  const tv=cfg.trackedVars.find(v=>v.ref===ref);if(!tv)return;
+  const idx=tv.cats.findIndex(c=>c.name===catName);
+  if(idx>=0)tv.cats.splice(idx,1);
+  else tv.cats.push({name:catName,targets:{}});
+  render();
+}
+
+function setTarget(ref,catName,bc,val){
+  const tv=cfg.trackedVars.find(v=>v.ref===ref);if(!tv)return;
+  const cat=tv.cats.find(c=>c.name===catName);if(cat)cat.targets[bc]=val;
+}
+function getTarget(tv,catName,bc){
+  const cat=tv.cats.find(c=>c.name===catName);
+  return cat?.targets[bc]||0;
+}
+function catHasAnyTarget(cat){return Object.values(cat.targets).some(v=>v>0)}
+
+function setTab(t){tab=t;render()}
+function addRollup(){cfg.rollups.push({label:'',ref:cfg.trackedVars[0]?.ref||'',cats:[],target:0});render()}
+function copyTargetsFrom(){
+  const allBcs=[bannerCols[0],...cfg.bannerTabs];
+  const from=prompt('Copy targets from which column?\\n\\n'+allBcs.map((bc,i)=>(i+1)+'. '+(bc===bannerCols[0]?'All Sample':bc)).join('\\n')+'\\n\\nEnter number:');
+  if(!from)return;
+  const idx=parseInt(from)-1;
+  if(idx<0||idx>=allBcs.length)return;
+  const srcBc=allBcs[idx];
+  for(const tv of cfg.trackedVars){for(const cat of tv.cats){cat.targets[editBc]=cat.targets[srcBc]||0}}
+  render();toast('Copied targets from '+(srcBc===bannerCols[0]?'All Sample':srcBc),'success');
+}
+
+function showPaste(){
+  setTimeout(()=>{const pa=document.getElementById('pasteArea');if(pa){pa.style.display='block';document.getElementById('pasteInput').value='';document.getElementById('pasteInput').focus()}},0);
+}
+
+function applyPaste(){
+  const raw=document.getElementById('pasteInput').value.trim();
+  if(!raw){toast('Nothing to paste','error');return}
+  const lines=raw.split('\n').map(l=>l.trim()).filter(Boolean);
+  
+  // Build flat list of all categories in order
+  const allCats=[];
+  for(const tv of cfg.trackedVars){for(const cat of tv.cats){allCats.push({ref:tv.ref,cat})}}
+  
+  let matched=0;
+  
+  // Detect format: tab/comma separated with 2+ columns = name+value, single column = values only
+  const firstLine=lines[0].split(/\t|,/);
+  
+  if(firstLine.length>=2){
+    // Two columns: category name + target value
+    for(const line of lines){
+      const parts=line.split(/\t|,/).map(s=>s.trim());
+      const name=parts[0];
+      const val=parseFloat(parts[parts.length-1]);
+      if(isNaN(val))continue;
+      // Find matching category
+      for(const item of allCats){
+        if(item.cat.name.toLowerCase()===name.toLowerCase()){
+          item.cat.targets[editBc]=val;matched++;break;
+        }
+      }
+    }
+  } else {
+    // Single column: values in order
+    for(let i=0;i<Math.min(lines.length,allCats.length);i++){
+      const val=parseFloat(lines[i]);
+      if(!isNaN(val)){allCats[i].cat.targets[editBc]=val;matched++}
+    }
+  }
+  
+  document.getElementById('pasteArea').style.display='none';
+  render();
+  toast('Applied '+matched+' targets','success');
+}
+function toggleRollupCat(ri,cat){
+  const idx=cfg.rollups[ri].cats.indexOf(cat);
+  if(idx>=0)cfg.rollups[ri].cats.splice(idx,1);else cfg.rollups[ri].cats.push(cat);
+  render();
+}
+
+// ============================================================
+// MAIN RENDER
+// ============================================================
+function render(){
+  let h='';
+  if(phase==='upload')h=renderUpload();
+  else if(phase==='setup')h=renderSetup();
+  else h=renderDashboard();
+  h+='<div class="footer">Nothing stored · Refresh to reset</div>';
+  document.getElementById('app').innerHTML=h;
+}
+
+document.addEventListener('DOMContentLoaded',()=>{render();
+  document.addEventListener('dragover',e=>{e.preventDefault();const d=document.getElementById('dz');if(d)d.classList.add('over')});
+  document.addEventListener('dragleave',e=>{const d=document.getElementById('dz');if(d&&!d.contains(e.relatedTarget))d.classList.remove('over')});
+  document.addEventListener('drop',e=>{e.preventDefault();const d=document.getElementById('dz');if(d)d.classList.remove('over');const f=e.dataTransfer.files[0];if(f&&f.name.endsWith('.txt')){if(phase==='dashboard'){const ev={target:{files:[f],value:'x'}};onReupload(ev)}else{const ev={target:{files:[f],value:'x'}};onFile(ev)}}});
+});
+</script>
+</body>
+</html>
